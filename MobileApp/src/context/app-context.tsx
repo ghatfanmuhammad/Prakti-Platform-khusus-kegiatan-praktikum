@@ -1,6 +1,4 @@
-// PLACEHOLDER SRS-002: state bersama sementara dari Felicia.
-// Kalau PM sudah merge Context resminya, ganti import `useApp` ke milik PM
-// dan sesuaikan nama field (pengguna, jadwal, presensi).
+// SRS-002: state bersama (pengguna, jadwal, presensi) untuk seluruh fitur.
 import {
   createContext,
   useCallback,
@@ -22,6 +20,7 @@ import {
   type Peran,
   type Presensi,
 } from '@/data/dummy';
+import { keWaktuLokal } from '@/utils/waktu';
 
 type AppContextValue = {
   pengguna: Identitas | null;
@@ -31,6 +30,8 @@ type AppContextValue = {
   setJadwal: Dispatch<SetStateAction<Jadwal[]>>;
   presensi: Presensi[];
   setPresensi: Dispatch<SetStateAction<Presensi[]>>;
+  /** Mencatat presensi pengguna aktif; diabaikan jika sesi tidak dibuka atau sudah tercatat. */
+  catatPresensi: (jadwalId: string, waktuHadir: string) => void;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -48,9 +49,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const keluar = useCallback(() => setPengguna(null), []);
 
+  const catatPresensi = useCallback(
+    (jadwalId: string, waktuHadir: string) => {
+      if (!pengguna || pengguna.peran !== 'praktikan') return;
+      const sesi = jadwal.find((j) => j.id === jadwalId);
+      if (sesi?.status !== 'dibuka') return;
+      setPresensi((prev) => {
+        if (prev.some((p) => p.jadwalId === jadwalId && p.praktikanId === pengguna.id)) return prev;
+        return [
+          ...prev,
+          {
+            id: `p-${Date.now()}`,
+            praktikanId: pengguna.id,
+            jadwalId,
+            waktuHadir: keWaktuLokal(new Date(waktuHadir)),
+          },
+        ];
+      });
+    },
+    [pengguna, jadwal],
+  );
+
   const value = useMemo(
-    () => ({ pengguna, masuk, keluar, jadwal, setJadwal, presensi, setPresensi }),
-    [pengguna, masuk, keluar, jadwal, presensi],
+    () => ({ pengguna, masuk, keluar, jadwal, setJadwal, presensi, setPresensi, catatPresensi }),
+    [pengguna, masuk, keluar, jadwal, presensi, catatPresensi],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

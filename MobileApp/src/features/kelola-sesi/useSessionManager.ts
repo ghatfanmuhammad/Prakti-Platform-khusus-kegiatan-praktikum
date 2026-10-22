@@ -1,9 +1,10 @@
-// SEMENTARA, ganti dengan state sesi di Context dari chore/setup-project saat sudah di-merge
-import { useState, useCallback } from 'react';
-import { DUMMY_SESSIONS, Session } from '@/features/jadwal/temp-data';
+import { useCallback } from 'react';
 
-export function useSessionManager(initialSessions: Session[] = DUMMY_SESSIONS) {
-  const [sessions, setSessions] = useState<Session[]>(initialSessions);
+import { useApp } from '@/context/app-context';
+
+/** Buka/tutup sesi (SRS-004). State sesi diambil dari Context bersama (SRS-002). */
+export function useSessionManager() {
+  const { jadwal: sessions, setJadwal: setSessions } = useApp();
 
   /**
    * Membuka sesi praktikum yang berstatus 'belum_dibuka'.
@@ -23,7 +24,7 @@ export function useSessionManager(initialSessions: Session[] = DUMMY_SESSIONS) {
         return { ...session, status: 'dibuka' };
       })
     );
-  }, []);
+  }, [setSessions]);
 
   /**
    * Menutup sesi praktikum yang berstatus 'dibuka'.
@@ -43,20 +44,11 @@ export function useSessionManager(initialSessions: Session[] = DUMMY_SESSIONS) {
         return { ...session, status: 'ditutup' };
       })
     );
-  }, []);
-
-  /**
-   * Fungsi pembantu untuk mereset data sesi kembali ke dummy awal (berguna untuk pengujian)
-   */
-  const resetSessions = useCallback(() => {
-    setSessions(initialSessions);
-  }, [initialSessions]);
+  }, [setSessions]);
 
   return {
     sessions,
-    setSessions,
     bukaSesi,
     tutupSesi,
-    resetSessions,
   };
 }

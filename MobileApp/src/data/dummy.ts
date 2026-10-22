@@ -1,5 +1,4 @@
-// PLACEHOLDER SRS-002: data dummy sementara dari Felicia.
-// Kalau PM sudah merge versi resminya, ganti import ke file milik PM.
+// SRS-002: data dummy terpusat untuk seluruh fitur Sprint 1.
 
 export type Peran = 'asisten' | 'praktikan';
 export type StatusSesi = 'belum_dibuka' | 'dibuka' | 'ditutup';
@@ -22,6 +21,8 @@ export type Jadwal = {
   jamSelesai: string;
   ruang: string;
   status: StatusSesi;
+  modul?: string;
+  keterangan?: string;
 };
 
 export type Presensi = {
@@ -47,11 +48,11 @@ export const PRAKTIKAN: Identitas[] = [
 ];
 
 export const JADWAL_AWAL: Jadwal[] = [
-  { id: 'j-01', praktikum: 'Pemrograman Mobile', kelas: 'A', tanggal: '2026-10-13', jamMulai: '13:00', jamSelesai: '15:00', ruang: 'Lab Komputer 2', status: 'ditutup' },
-  { id: 'j-02', praktikum: 'Basis Data', kelas: 'B', tanggal: '2026-10-15', jamMulai: '10:00', jamSelesai: '12:00', ruang: 'Lab Komputer 1', status: 'ditutup' },
-  { id: 'j-03', praktikum: 'Jaringan Komputer', kelas: 'A', tanggal: '2026-10-22', jamMulai: '13:00', jamSelesai: '15:00', ruang: 'Lab Jaringan', status: 'dibuka' },
-  { id: 'j-04', praktikum: 'Pemrograman Mobile', kelas: 'B', tanggal: '2026-10-27', jamMulai: '09:00', jamSelesai: '11:00', ruang: 'Lab Komputer 2', status: 'belum_dibuka' },
-  { id: 'j-05', praktikum: 'Basis Data', kelas: 'A', tanggal: '2026-10-29', jamMulai: '13:00', jamSelesai: '15:00', ruang: 'Lab Komputer 1', status: 'belum_dibuka' },
+  { id: 'j-01', praktikum: 'Pemrograman Mobile', kelas: 'A', tanggal: '2026-10-13', jamMulai: '13:00', jamSelesai: '15:00', ruang: 'Lab Komputer 2', status: 'ditutup', modul: 'Modul 1: Pengenalan React Native & Expo' },
+  { id: 'j-02', praktikum: 'Basis Data', kelas: 'B', tanggal: '2026-10-15', jamMulai: '10:00', jamSelesai: '12:00', ruang: 'Lab Komputer 1', status: 'ditutup', modul: 'Modul 3: Normalisasi Basis Data & DDL' },
+  { id: 'j-03', praktikum: 'Jaringan Komputer', kelas: 'A', tanggal: '2026-10-22', jamMulai: '13:00', jamSelesai: '15:00', ruang: 'Lab Jaringan', status: 'dibuka', modul: 'Modul 2: Subnetting & Routing Statis', keterangan: 'Harap membawa laptop dan menginstal Cisco Packet Tracer.' },
+  { id: 'j-04', praktikum: 'Pemrograman Mobile', kelas: 'B', tanggal: '2026-10-27', jamMulai: '09:00', jamSelesai: '11:00', ruang: 'Lab Komputer 2', status: 'belum_dibuka', modul: 'Modul 2: Layout dengan Flexbox' },
+  { id: 'j-05', praktikum: 'Basis Data', kelas: 'A', tanggal: '2026-10-29', jamMulai: '13:00', jamSelesai: '15:00', ruang: 'Lab Komputer 1', status: 'belum_dibuka', modul: 'Modul 4: Query JOIN & Subquery', keterangan: 'Pastikan PostgreSQL lokal sudah berjalan.' },
 ];
 
 // pr-01 punya 2 riwayat, pr-02 punya 1, sisanya kosong (untuk uji tampilan kosong).

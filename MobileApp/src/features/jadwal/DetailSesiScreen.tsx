@@ -6,12 +6,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Session } from './temp-data';
+import type { Jadwal } from '@/data/dummy';
+import { formatWaktuSesi } from '@/utils/waktu';
 import { StatusBadge } from './StatusBadge';
 import { ConfirmModal } from '@/features/kelola-sesi/ConfirmModal';
 
 export interface DetailSesiScreenProps {
-  session?: Session | null;
+  session?: Jadwal | null;
   onBack?: () => void;
   // Props aksi (opsional) untuk kebutuhan asisten mengelola sesi (SRS-004)
   actionSlot?: React.ReactNode;
@@ -76,7 +77,7 @@ export function DetailSesiScreen({
             <StatusBadge status={session.status} />
           </View>
 
-          <Text style={styles.namaPraktikum}>{session.namaPraktikum}</Text>
+          <Text style={styles.namaPraktikum}>{session.praktikum}</Text>
           <Text style={styles.sessionId}>ID Sesi: {session.id}</Text>
         </View>
 
@@ -88,21 +89,23 @@ export function DetailSesiScreen({
             <Text style={styles.infoIcon}>🕒</Text>
             <View style={styles.infoTextWrapper}>
               <Text style={styles.infoLabel}>Waktu & Jadwal</Text>
-              <Text style={styles.infoValue}>{session.waktu}</Text>
+              <Text style={styles.infoValue}>
+                {formatWaktuSesi(session.tanggal, session.jamMulai, session.jamSelesai)}
+              </Text>
             </View>
           </View>
 
-          {session.ruangan && (
+          {session.ruang ? (
             <View style={styles.infoRow}>
               <Text style={styles.infoIcon}>📍</Text>
               <View style={styles.infoTextWrapper}>
                 <Text style={styles.infoLabel}>Lokasi Ruangan</Text>
-                <Text style={styles.infoValue}>{session.ruangan}</Text>
+                <Text style={styles.infoValue}>{session.ruang}</Text>
               </View>
             </View>
-          )}
+          ) : null}
 
-          {session.modul && (
+          {session.modul ? (
             <View style={styles.infoRow}>
               <Text style={styles.infoIcon}>📖</Text>
               <View style={styles.infoTextWrapper}>
@@ -110,16 +113,16 @@ export function DetailSesiScreen({
                 <Text style={styles.infoValue}>{session.modul}</Text>
               </View>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Catatan / Keterangan Sesi */}
-        {session.keterangan && (
+        {session.keterangan ? (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Catatan Tambahan</Text>
             <Text style={styles.keteranganText}>{session.keterangan}</Text>
           </View>
-        )}
+        ) : null}
 
         {/* Bagian Tombol Aksi Kelola Sesi (Khusus Asisten / jika props disediakan) */}
         {actionSlot ? (
@@ -173,7 +176,7 @@ export function DetailSesiScreen({
         <ConfirmModal
           visible={modalType === 'buka'}
           title="Buka Sesi Praktikum?"
-          message={`Apakah Anda yakin ingin membuka sesi praktikum ${session.namaPraktikum} (${session.kelas})? Praktikan dapat mulai melakukan presensi.`}
+          message={`Apakah Anda yakin ingin membuka sesi praktikum ${session.praktikum} (${session.kelas})? Praktikan dapat mulai melakukan presensi.`}
           confirmLabel="Buka Sesi"
           confirmVariant="primary"
           onConfirm={() => {
@@ -189,7 +192,7 @@ export function DetailSesiScreen({
         <ConfirmModal
           visible={modalType === 'tutup'}
           title="Tutup Sesi Praktikum?"
-          message={`Apakah Anda yakin ingin menutup sesi praktikum ${session.namaPraktikum} (${session.kelas})? Sesi yang telah ditutup bersifat permanen dan tidak dapat dibuka kembali.`}
+          message={`Apakah Anda yakin ingin menutup sesi praktikum ${session.praktikum} (${session.kelas})? Sesi yang telah ditutup bersifat permanen dan tidak dapat dibuka kembali.`}
           confirmLabel="Tutup Sesi"
           confirmVariant="danger"
           onConfirm={() => {

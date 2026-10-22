@@ -1,13 +1,9 @@
-/** Status sesi praktikum (SRS-003/004 akan mengubah nilai ini). */
-export type StatusSesi = 'belum_dibuka' | 'dibuka' | 'ditutup';
+import type { Presensi, StatusSesi } from '@/data/dummy';
 
-/** Satu catatan kehadiran praktikan pada satu sesi. */
-export type CatatanPresensi = {
-  sesiId: string;
-  praktikanId: string;
-  /** Waktu presensi dalam format ISO, contoh: 2026-10-22T08:30:00.000Z */
-  waktuHadir: string;
-};
+export type { StatusSesi };
+
+/** Satu catatan kehadiran praktikan pada satu sesi (memakai tipe data bersama). */
+export type CatatanPresensi = Presensi;
 
 /** Kondisi tampilan presensi untuk satu praktikan pada satu sesi. */
 export type KondisiPresensi =

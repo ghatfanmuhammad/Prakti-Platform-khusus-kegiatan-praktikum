@@ -10,8 +10,19 @@ export function formatTanggal(tanggal: string) {
   return `${HARI[date.getDay()]}, ${d} ${BULAN[m - 1]} ${y}`;
 }
 
+/** ('2026-10-13', '13:00', '15:00') -> 'Selasa, 13 Okt 2026 · 13:00 - 15:00' */
+export function formatWaktuSesi(tanggal: string, jamMulai: string, jamSelesai: string) {
+  return `${formatTanggal(tanggal)} · ${jamMulai} - ${jamSelesai}`;
+}
+
 /** '2026-10-13T13:07:00' -> '13:07' */
 export function formatJam(waktu: string) {
   const date = new Date(waktu);
   return `${dua(date.getHours())}:${dua(date.getMinutes())}`;
+}
+
+/** Date -> '2026-10-13T13:07:00' (waktu lokal, format sama dengan data dummy) */
+export function keWaktuLokal(date: Date) {
+  const tanggal = `${date.getFullYear()}-${dua(date.getMonth() + 1)}-${dua(date.getDate())}`;
+  return `${tanggal}T${dua(date.getHours())}:${dua(date.getMinutes())}:${dua(date.getSeconds())}`;
 }
