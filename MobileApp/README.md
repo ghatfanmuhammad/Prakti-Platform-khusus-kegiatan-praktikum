@@ -45,8 +45,6 @@ flowchart LR
 3. **Pantau Rekap:** Asisten membuka halaman rekap untuk memverifikasi daftar praktikan yang telah hadir.
 4. **Tutup Sesi:** Asisten menutup sesi praktikum; sesi yang telah ditutup tidak dapat dibuka kembali dan praktikan tidak dapat melakukan presensi lagi.
 
-🔗 **Tautan Demo UI Prototype:** [Lihat Demo di Claude](https://claude.ai/chat/a5c23933-c9f5-480a-aa1d-a3f5019c2fa8#)
-
 ---
 
 ## 📋 Daftar Software Requirement Specification (SRS)
@@ -67,10 +65,10 @@ flowchart LR
 Struktur tim terdiri dari **1 Project Manager** dan **3 Programmer**. Seluruh pengerjaan fitur dilakukan secara terisolasi pada branch masing-masing yang dibuat dari `main`.
 
 ```
-                         ┌── feature/pilih-peran & riwayat-praktikan (Felicia)
-                         ├── feature/jadwal-sesi & kelola-sesi (Raihan)
+                              ┌── feature/pilih-peran & riwayat-praktikan (Felicia)
+                              ├── feature/jadwal-sesi & kelola-sesi (Raihan)
 main ── chore/setup-project (Ghatfan) 
-                         └── feature/presensi & rekap-asisten (Reva Yasmin)
+                              └── feature/presensi & rekap-asisten (Reva Yasmin)
 ```
 
 | Anggota Tim | Peran | Tanggung Jawab & Fitur | Target SRS | Branch Kerja |
