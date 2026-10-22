@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -8,13 +8,27 @@ import {
 } from 'react-native';
 import { Session } from './temp-data';
 import { StatusBadge } from './StatusBadge';
+import { ConfirmModal } from '@/features/kelola-sesi/ConfirmModal';
 
-interface DetailSesiScreenProps {
+export interface DetailSesiScreenProps {
   session?: Session | null;
   onBack?: () => void;
+  // Props aksi (opsional) untuk kebutuhan asisten mengelola sesi (SRS-004)
+  actionSlot?: React.ReactNode;
+  onBukaSesi?: (id: string) => void;
+  onTutupSesi?: (id: string) => void;
 }
 
-export function DetailSesiScreen({ session, onBack }: DetailSesiScreenProps) {
+export function DetailSesiScreen({
+  session,
+  onBack,
+  actionSlot,
+  onBukaSesi,
+  onTutupSesi,
+}: DetailSesiScreenProps) {
+  // State modal konfirmasi untuk buka/tutup sesi
+  const [modalType, setModalType] = useState<'buka' | 'tutup' | null>(null);
+
   // Kondisi jika data sesi tidak ditemukan / null
   if (!session) {
     return (
@@ -106,7 +120,85 @@ export function DetailSesiScreen({ session, onBack }: DetailSesiScreenProps) {
             <Text style={styles.keteranganText}>{session.keterangan}</Text>
           </View>
         )}
+
+        {/* Bagian Tombol Aksi Kelola Sesi (Khusus Asisten / jika props disediakan) */}
+        {actionSlot ? (
+          <View style={styles.actionContainer}>{actionSlot}</View>
+        ) : (onBukaSesi || onTutupSesi) ? (
+          <View style={styles.actionContainer}>
+            {session.status === 'belum_dibuka' && onBukaSesi && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  styles.btnBuka,
+                  pressed && styles.btnPressed,
+                ]}
+                onPress={() => setModalType('buka')}
+                accessibilityRole="button"
+                accessibilityLabel="Buka Sesi Praktikum"
+              >
+                <Text style={styles.btnText}>▶ Buka Sesi Praktikum</Text>
+              </Pressable>
+            )}
+
+            {session.status === 'dibuka' && onTutupSesi && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  styles.btnTutup,
+                  pressed && styles.btnPressed,
+                ]}
+                onPress={() => setModalType('tutup')}
+                accessibilityRole="button"
+                accessibilityLabel="Tutup Sesi Praktikum"
+              >
+                <Text style={styles.btnText}>⏹ Tutup Sesi Praktikum</Text>
+              </Pressable>
+            )}
+
+            {session.status === 'ditutup' && (
+              <View style={styles.closedNoticeBox}>
+                <Text style={styles.closedNoticeIcon}>ℹ️</Text>
+                <Text style={styles.closedNoticeText}>
+                  Sesi sudah ditutup dan tidak dapat dibuka kembali
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : null}
       </ScrollView>
+
+      {/* Modal Konfirmasi Buka Sesi */}
+      {onBukaSesi && (
+        <ConfirmModal
+          visible={modalType === 'buka'}
+          title="Buka Sesi Praktikum?"
+          message={`Apakah Anda yakin ingin membuka sesi praktikum ${session.namaPraktikum} (${session.kelas})? Praktikan dapat mulai melakukan presensi.`}
+          confirmLabel="Buka Sesi"
+          confirmVariant="primary"
+          onConfirm={() => {
+            onBukaSesi(session.id);
+            setModalType(null);
+          }}
+          onCancel={() => setModalType(null)}
+        />
+      )}
+
+      {/* Modal Konfirmasi Tutup Sesi */}
+      {onTutupSesi && (
+        <ConfirmModal
+          visible={modalType === 'tutup'}
+          title="Tutup Sesi Praktikum?"
+          message={`Apakah Anda yakin ingin menutup sesi praktikum ${session.namaPraktikum} (${session.kelas})? Sesi yang telah ditutup bersifat permanen dan tidak dapat dibuka kembali.`}
+          confirmLabel="Tutup Sesi"
+          confirmVariant="danger"
+          onConfirm={() => {
+            onTutupSesi(session.id);
+            setModalType(null);
+          }}
+          onCancel={() => setModalType(null)}
+        />
+      )}
     </View>
   );
 }
@@ -229,6 +321,58 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#334155',
     lineHeight: 20,
+  },
+  // Action Buttons (SRS-004)
+  actionContainer: {
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  actionBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  btnBuka: {
+    backgroundColor: '#16A34A', // Hijau
+  },
+  btnTutup: {
+    backgroundColor: '#DC2626', // Merah
+  },
+  btnPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
+  },
+  btnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  closedNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  closedNoticeIcon: {
+    fontSize: 18,
+  },
+  closedNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+    lineHeight: 18,
   },
   // Not Found State
   notFoundContainer: {
