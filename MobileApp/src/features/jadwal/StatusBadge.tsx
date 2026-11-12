@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { SessionStatus } from './temp-data';
+import type { StatusSesi } from '@/data/dummy';
 
 interface StatusBadgeProps {
-  status: SessionStatus;
+  status: StatusSesi;
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {

@@ -6,17 +6,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Session } from './temp-data';
+import type { Jadwal } from '@/data/dummy';
+import { formatWaktuSesi } from '@/utils/waktu';
 import { StatusBadge } from './StatusBadge';
 
 interface JadwalScreenProps {
-  sessions: Session[];
+  sessions: Jadwal[];
   onPressItem: (id: string) => void;
 }
 
 export function JadwalScreen({ sessions, onPressItem }: JadwalScreenProps) {
   // Render item per sesi praktikum
-  const renderItem = ({ item }: { item: Session }) => {
+  const renderItem = ({ item }: { item: Jadwal }) => {
     return (
       <Pressable
         style={({ pressed }) => [
@@ -25,11 +26,11 @@ export function JadwalScreen({ sessions, onPressItem }: JadwalScreenProps) {
         ]}
         onPress={() => onPressItem(item.id)}
         accessibilityRole="button"
-        accessibilityLabel={`Sesi ${item.namaPraktikum}, kelas ${item.kelas}`}
+        accessibilityLabel={`Sesi ${item.praktikum}, kelas ${item.kelas}`}
       >
         <View style={styles.cardHeader}>
           <Text style={styles.namaPraktikum} numberOfLines={2}>
-            {item.namaPraktikum}
+            {item.praktikum}
           </Text>
           <StatusBadge status={item.status} />
         </View>
@@ -38,7 +39,7 @@ export function JadwalScreen({ sessions, onPressItem }: JadwalScreenProps) {
           <View style={styles.kelasBadge}>
             <Text style={styles.kelasText}>{item.kelas}</Text>
           </View>
-          <Text style={styles.waktuText}>🕒 {item.waktu}</Text>
+          <Text style={styles.waktuText}>🕒 {formatWaktuSesi(item.tanggal, item.jamMulai, item.jamSelesai)}</Text>
         </View>
       </Pressable>
     );
