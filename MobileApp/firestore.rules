@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function assistant() { return signedIn() && profile().role == 'asisten'; }
+    function student() { return signedIn() && profile().role == 'praktikan'; }
+    function classExists(classId) { return exists(/databases/$(database)/documents/classes/$(classId)); }
+    function member(classId) {
+      return student() && exists(/databases/$(database)/documents/participants/$(classId + '_' + request.auth.uid))
+        && get(/databases/$(database)/documents/participants/$(classId + '_' + request.auth.uid)).data.classId == classId
+        && get(/databases/$(database)/documents/participants/$(classId + '_' + request.auth.uid)).data.uid == request.auth.uid;
+    }
+    function classReader(classId) { return assistant() || member(classId); }
+    function text(value, size) { return value is string && value.size() > 0 && value.size() <= size; }
+    function count(value) { return value is int && value >= 0; }
+    function timestamps(data) { return data.createdAt is timestamp && data.updatedAt == request.time; }
+    function unchangedCreated() { return request.resource.data.createdAt == resource.data.createdAt; }
+    function classData(data) {
+      return data.keys().hasAll(['kode', 'namaPraktikum', 'participantCount', 'scheduleCount', 'sessionCount', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['kode', 'namaPraktikum', 'participantCount', 'scheduleCount', 'sessionCount', 'createdAt', 'updatedAt'])
+        && text(data.kode, 40) && text(data.namaPraktikum, 120)
+        && count(data.participantCount) && count(data.scheduleCount) && count(data.sessionCount) && timestamps(data);
+    }
+    function participantData(data, id) {
+      return data.keys().hasAll(['classId', 'uid', 'nama', 'nim', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['classId', 'uid', 'nama', 'nim', 'createdAt', 'updatedAt'])
+        && text(data.classId, 128) && text(data.uid, 128)
+        && id == data.classId + '_' + data.uid
+        && text(data.nama, 120) && text(data.nim, 40) && timestamps(data)
+        && classExists(data.classId)
+        && get(/databases/$(database)/documents/users/$(data.uid)).data.role == 'praktikan';
+    }
+    function scheduleData(data) {
+      return data.keys().hasAll(['hari', 'mulai', 'selesai', 'ruangan', 'sessionCount', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['hari', 'mulai', 'selesai', 'ruangan', 'sessionCount', 'createdAt', 'updatedAt'])
+        && data.hari in ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+        && data.mulai is string && data.mulai.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        && data.selesai is string && data.selesai.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        && data.selesai > data.mulai && text(data.ruangan, 120) && count(data.sessionCount) && timestamps(data);
+    }
+    function sessionData(data, classId) {
+      return data.keys().hasAll(['scheduleId', 'tanggal', 'modul', 'keterangan', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['scheduleId', 'tanggal', 'modul', 'keterangan', 'status', 'createdAt', 'updatedAt'])
+        && text(data.scheduleId, 128)
+        && exists(/databases/$(database)/documents/classes/$(classId)/schedules/$(data.scheduleId))
+        && data.tanggal is string && data.tanggal.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && text(data.modul, 160) && data.keterangan is string && data.keterangan.size() <= 1000
+        && data.status in ['belum_dibuka', 'dibuka', 'ditutup'] && timestamps(data);
+    }
+    function sessionMoveCounts(classId) {
+      return request.resource.data.scheduleId == resource.data.scheduleId
+        || (getAfter(/databases/$(database)/documents/classes/$(classId)/schedules/$(request.resource.data.scheduleId)).data.sessionCount == get(/databases/$(database)/documents/classes/$(classId)/schedules/$(request.resource.data.scheduleId)).data.sessionCount + 1
+          && getAfter(/databases/$(database)/documents/classes/$(classId)/schedules/$(resource.data.scheduleId)).data.sessionCount == get(/databases/$(database)/documents/classes/$(classId)/schedules/$(resource.data.scheduleId)).data.sessionCount - 1);
+    }
+    // Roles are provisioned by trusted Admin SDK / Firebase Console, never by a role toggle.
+    // SRS-007 may add profile creation, but must not allow self-promotion to assistant.
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || assistant());
+      allow list, create, update, delete: if false;
+    }
+    match /classes/{classId} {
+      allow get: if classReader(classId);
+      allow list: if assistant();
+      allow create: if assistant() && classData(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.participantCount == 0 && request.resource.data.scheduleCount == 0 && request.resource.data.sessionCount == 0;
+      allow update: if assistant() && classData(request.resource.data) && unchangedCreated();
+      allow delete: if assistant() && resource.data.participantCount == 0 && resource.data.scheduleCount == 0 && resource.data.sessionCount == 0;
+      match /schedules/{scheduleId} {
+        allow read: if classExists(classId) && classReader(classId);
+        allow create: if assistant() && classExists(classId) && scheduleData(request.resource.data)
+          && request.resource.data.createdAt == request.time && request.resource.data.sessionCount == 0
+          && getAfter(/databases/$(database)/documents/classes/$(classId)).data.scheduleCount == get(/databases/$(database)/documents/classes/$(classId)).data.scheduleCount + 1;
+        allow update: if assistant() && classExists(classId) && scheduleData(request.resource.data) && unchangedCreated()
+          && (resource.data.sessionCount == 0 || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hari', 'mulai', 'selesai']));
+        allow delete: if assistant() && resource.data.sessionCount == 0
+          && getAfter(/databases/$(database)/documents/classes/$(classId)).data.scheduleCount == get(/databases/$(database)/documents/classes/$(classId)).data.scheduleCount - 1;
+      }
+      match /sessions/{sessionId} {
+        allow read: if classExists(classId) && classReader(classId);
+        allow create: if assistant() && classExists(classId) && sessionData(request.resource.data, classId)
+          && request.resource.data.createdAt == request.time && request.resource.data.status == 'belum_dibuka'
+          && getAfter(/databases/$(database)/documents/classes/$(classId)).data.sessionCount == get(/databases/$(database)/documents/classes/$(classId)).data.sessionCount + 1
+          && getAfter(/databases/$(database)/documents/classes/$(classId)/schedules/$(request.resource.data.scheduleId)).data.sessionCount == get(/databases/$(database)/documents/classes/$(classId)/schedules/$(request.resource.data.scheduleId)).data.sessionCount + 1;
+        allow update: if assistant() && classExists(classId) && sessionData(request.resource.data, classId) && unchangedCreated() && sessionMoveCounts(classId)
+          && ((resource.data.status == 'belum_dibuka' && request.resource.data.status == 'belum_dibuka')
+            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+              && ((resource.data.status == 'belum_dibuka' && request.resource.data.status == 'dibuka') || (resource.data.status == 'dibuka' && request.resource.data.status == 'ditutup'))));
+        allow delete: if assistant() && resource.data.status == 'belum_dibuka'
+          && getAfter(/databases/$(database)/documents/classes/$(classId)).data.sessionCount == get(/databases/$(database)/documents/classes/$(classId)).data.sessionCount - 1
+          && getAfter(/databases/$(database)/documents/classes/$(classId)/schedules/$(resource.data.scheduleId)).data.sessionCount == get(/databases/$(database)/documents/classes/$(classId)/schedules/$(resource.data.scheduleId)).data.sessionCount - 1;
+      }
+    }
+    match /participants/{id} {
+      allow get, list: if assistant() || (student() && resource.data.uid == request.auth.uid);
+      allow create: if assistant() && participantData(request.resource.data, id) && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.participantCount == get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.participantCount + 1;
+      allow update: if assistant() && participantData(request.resource.data, id) && unchangedCreated()
+        && request.resource.data.uid == resource.data.uid && request.resource.data.classId == resource.data.classId;
+      allow delete: if assistant()
+        && getAfter(/databases/$(database)/documents/classes/$(resource.data.classId)).data.participantCount == get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.participantCount - 1;
+    }
+  }
+}

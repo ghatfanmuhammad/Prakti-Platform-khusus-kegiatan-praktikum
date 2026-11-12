@@ -41,3 +41,9 @@ example
 # generated native folders
 /ios
 /android
+
+# Firebase local configuration and emulator output
+.env
+.env.*
+!.env.example
+*-debug.log
