@@ -193,8 +193,11 @@ main ───────────────┼── feature/data-praktik
 
 ### Prasyarat
 - Pastikan telah menginstal [Node.js](https://nodejs.org/) (versi LTS disarankan, Node 18+ atau 20+).
-- Aplikasi [Expo Go](https://expo.dev/go) pada perangkat fisik (Android/iOS) atau emulator Android/iOS.
+- [Android Studio](https://developer.android.com/studio) dengan Android Emulator, atau perangkat Android fisik dengan *USB debugging* aktif.
 - Proyek Firebase dengan Authentication (Email/Password) dan Cloud Firestore yang sudah diaktifkan.
+
+> [!NOTE]  
+> Aplikasi **tidak dijalankan melalui Expo Go**, melainkan sebagai *development build* langsung ke emulator atau perangkat.
 
 ### Langkah Instalasi & Menjalankan
 
@@ -211,16 +214,18 @@ main ───────────────┼── feature/data-praktik
 3. **Konfigurasi Firebase:**
    Salin konfigurasi proyek Firebase ke file `.env` (jangan di-commit ke repositori).
 
-4. **Menjalankan Server Pengembangan Expo:**
+4. **Build & Menjalankan Aplikasi (pertama kali):**
+   Pastikan emulator sudah menyala atau perangkat terhubung, lalu jalankan:
    ```bash
-   npx expo start
+   npx expo run:android
    ```
 
-5. **Membuka Aplikasi:**
-   - Pindai QR Code yang muncul di terminal menggunakan aplikasi **Expo Go** pada perangkat Android, atau kamera pada iOS.
-   - Tekan `a` untuk membuka Android Emulator.
-   - Tekan `i` untuk membuka iOS Simulator.
-   - Tekan `w` untuk menjalankan di Web Browser.
+5. **Menjalankan Ulang Setelah Build:**
+   ```bash
+   npx expo start --dev-client
+   ```
+   Tekan `a` untuk membuka aplikasi di Android Emulator/perangkat yang terhubung.
+   Build ulang hanya diperlukan saat ada perubahan dependensi native atau konfigurasi `app.json`.
 
 ---
 
