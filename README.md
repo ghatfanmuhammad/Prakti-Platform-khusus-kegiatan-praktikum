@@ -139,9 +139,10 @@ main ───────────────┼── feature/data-praktik
 
 | Anggota Tim | Peran | Tanggung Jawab & Fitur | Target SRS | Branch Kerja |
 | :--- | :--- | :--- | :--- | :--- |
-| **Ghatfan** | **Project Manager** | • Setup Firebase (Authentication & Firestore) pada proyek.<br>• Registrasi, login, logout, dan pembatasan halaman berdasarkan peran.<br>• Penulisan dan pengujian *Firebase Security Rules*.<br>• Halaman asisten untuk memeriksa, menerima, atau menolak izin.<br>• Manajemen alur Git, code review, penyelesaian konflik, & merge ke `main`. | **SRS-007**<br>**SRS-011** | `feature/auth-keamanan`<br>`feature/pemeriksaan-izin` |
-| **Raihan** | **Programmer 1** | • CRUD data kelas, peserta, jadwal, dan sesi oleh asisten.<br>• Tampilan jadwal dan sesi praktikan sesuai kelasnya.<br>• Penanganan *loading*, *empty state*, dan error koneksi. | **SRS-008** | `feature/data-praktikum` |
-| **Reva Yasmin** | **Programmer 2** | • Presensi praktikan (hanya saat sesi dibuka, satu kali per sesi) dan rekap kehadiran real-time.<br>• Form pengajuan izin beserta validasi input.<br>• Pemantauan status pengajuan izin oleh praktikan secara real-time. | **SRS-009**<br>**SRS-010** | `feature/presensi-realtime`<br>`feature/pengajuan-izin` |
+| **Felicia** | **Project Manager** | • Manajemen alur Git, code review, penyelesaian konflik, & merge ke `main`.<br>• Monitoring dan pelaporan status akhir proyek. | - | - |
+| **Ghatfan** | **Programmer 1** | • Setup Firebase (Authentication & Firestore) pada proyek.<br>• Registrasi, login, logout, dan pembatasan halaman berdasarkan peran.<br>• Penulisan dan pengujian *Firebase Security Rules*.<br>• Halaman asisten untuk memeriksa, menerima, atau menolak izin. | **SRS-007**<br>**SRS-011** | `feature/auth-keamanan`<br>`feature/pemeriksaan-izin` |
+| **Raihan** | **Programmer 2** | • CRUD data kelas, peserta, jadwal, dan sesi oleh asisten.<br>• Tampilan jadwal dan sesi praktikan sesuai kelasnya.<br>• Penanganan *loading*, *empty state*, dan error koneksi. | **SRS-008** | `feature/data-praktikum` |
+| **Reva Yasmin** | **Programmer 3** | • Presensi praktikan (hanya saat sesi dibuka, satu kali per sesi) dan rekap kehadiran real-time.<br>• Form pengajuan izin beserta validasi input.<br>• Pemantauan status pengajuan izin oleh praktikan secara real-time. | **SRS-009**<br>**SRS-010** | `feature/presensi-realtime`<br>`feature/pengajuan-izin` |
 
 ---
 
@@ -173,7 +174,8 @@ main ───────────────┼── feature/data-praktik
 4. **Fokus Pengerjaan:**
    - Bekerja secara terfokus pada cakupan SRS yang telah dialokasikan (tidak lebih dan tidak kurang) guna meminimalkan *merge conflict*.
 5. **Kewenangan Merge:**
-   - **Hanya Project Manager (Ghatfan)** yang memiliki otorisasi untuk melakukan merge branch fitur ke branch `main`.
+   - **Sprint 1:** hanya Project Manager (**Ghatfan**) yang memiliki otorisasi untuk melakukan merge branch fitur ke branch `main`.
+   - **Sprint 2:** hanya Project Manager (**Felicia**) yang memiliki otorisasi untuk melakukan merge branch fitur ke branch `main`.
 
 ---
 
