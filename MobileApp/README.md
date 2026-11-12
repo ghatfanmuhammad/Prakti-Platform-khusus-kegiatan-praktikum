@@ -169,3 +169,9 @@ MobileApp/
 ├── tsconfig.json               # Konfigurasi compiler TypeScript
 └── README.md                   # Dokumentasi resmi proyek PRAKTI
 ```
+
+## Sprint 2 — SRS-008 (Raihan)
+
+Tab **Data Praktikum** (`/explore`) menyediakan CRUD Firestore untuk kelas, peserta, jadwal, dan sesi. Akses mengikuti Firebase Auth dan profil pengguna, termasuk pembatasan kelas praktikan serta tampilan loading, kosong, dan error.
+
+Konfigurasi Firebase, kontrak integrasi SRS-007/009/010, skema, aturan penghapusan, dan langkah pengujian tersedia di [docs/SRS-008.md](docs/SRS-008.md). Login dan konfigurasi Firebase tim perlu diintegrasikan untuk menjalankan alur dengan akun asli. Home juga membaca jadwal Firestore sesuai akun login. Source preview dummy sprint sebelumnya tetap tersedia untuk referensi.
