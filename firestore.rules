@@ -1,0 +1,104 @@
+rules_version = '2';
+
+// Firestore Security Rules PRAKTI (SRS-007)
+// Prinsip: tolak semua kecuali yang diizinkan eksplisit sesuai identitas (UID) dan peran.
+// Koleksi baru (kelas, sesi, presensi, ...) WAJIB ditambahkan aturannya di sini,
+// kalau tidak, aksesnya otomatis ditolak.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helper ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function punyaProfil() {
+      return signedIn() && exists(profilPath());
+    }
+
+    function peran() {
+      return get(profilPath()).data.role;
+    }
+
+    function isAsisten() {
+      return punyaProfil() && peran() == 'asisten';
+    }
+
+    function isPraktikan() {
+      return punyaProfil() && peran() == 'praktikan';
+    }
+
+    // Email asisten resmi didaftarkan koordinator lewat Firebase Console
+    // sebagai dokumen asisten_terdaftar/{email-huruf-kecil}.
+    function emailAsistenTerdaftar() {
+      return request.auth.token.email != null
+        && exists(/databases/$(database)/documents/asisten_terdaftar/$(request.auth.token.email.lower()));
+    }
+
+    // ---------- users/{uid}: profil & peran ----------
+    match /users/{uid} {
+      // Pemilik membaca profilnya sendiri; asisten boleh melihat profil (mis. data praktikan)
+      allow read: if signedIn() && (request.auth.uid == uid || isAsisten());
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'role', 'nimOrCode', 'createdAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.nimOrCode is string && request.resource.data.nimOrCode.size() > 0
+        && request.resource.data.createdAt == request.time
+        && (request.resource.data.role == 'praktikan'
+            || (request.resource.data.role == 'asisten' && emailAsistenTerdaftar()));
+
+      // Peran, email, dan uid tidak boleh diubah dari aplikasi
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'nimOrCode']);
+
+      allow delete: if false;
+    }
+
+    // ---------- asisten_terdaftar/{email}: daftar putih asisten ----------
+    // Hanya dikelola lewat Firebase Console / Admin SDK.
+    match /asisten_terdaftar/{email} {
+      allow read, write: if false;
+    }
+
+    // ---------- izin/{izinId}: pengajuan izin (SRS-010) & pemeriksaan (SRS-011) ----------
+    match /izin/{izinId} {
+      // Asisten melihat semua; praktikan hanya izin miliknya
+      allow read: if isAsisten()
+        || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
+
+      // Praktikan mengajukan izin atas nama dirinya sendiri, status awal Menunggu
+      allow create: if isPraktikan()
+        && request.resource.data.keys().hasOnly([
+             'praktikanId', 'praktikanNama', 'praktikanNim', 'sesiId', 'sesiNama',
+             'alasan', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.praktikanId == request.auth.uid
+        && request.resource.data.sesiId is string && request.resource.data.sesiId.size() > 0
+        && request.resource.data.alasan is string
+        && request.resource.data.alasan.trim().size() >= 5
+        && request.resource.data.status == 'Menunggu'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // Hanya asisten yang memutuskan, hanya sekali (dari Menunggu), dan tercatat UID-nya
+      allow update: if isAsisten()
+        && resource.data.status == 'Menunggu'
+        && request.resource.data.status in ['Disetujui', 'Ditolak']
+        && request.resource.data.reviewedByUid == request.auth.uid
+        && request.resource.data.reviewedBy is string
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'reviewedBy', 'reviewedByUid', 'updatedAt']);
+
+      allow delete: if false;
+    }
+  }
+}

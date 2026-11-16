@@ -18,6 +18,7 @@ import {
   formatAuthError,
   loginUser,
   registerUser,
+  toCurrentUser,
   type UserRole,
 } from '../../services/authService';
 import { cardShadow, colors, radius, spacing, typography } from '../../theme';
@@ -68,51 +69,17 @@ export function AuthScreen({ onBypassDemo }: Props) {
     setLoading(true);
 
     try {
-      if (mode === 'login') {
-        const profile = await loginUser(email, password);
-        // Simpan ke state global aplikasi sesuai tipe CurrentUser
-        if (profile.role === 'asisten') {
-          masuk({
-            role: 'asisten',
-            asisten: {
-              id: profile.uid,
-              nama: profile.name,
-            },
-          });
-        } else {
-          masuk({
-            role: 'praktikan',
-            praktikan: {
-              id: profile.uid,
-              nama: profile.name,
-              nim: profile.nimOrCode,
-            },
-          });
-        }
-      } else {
-        const profile = await registerUser(email, password, name, role, nimOrCode);
-        if (profile.role === 'asisten') {
-          masuk({
-            role: 'asisten',
-            asisten: {
-              id: profile.uid,
-              nama: profile.name,
-            },
-          });
-        } else {
-          masuk({
-            role: 'praktikan',
-            praktikan: {
-              id: profile.uid,
-              nama: profile.name,
-              nim: profile.nimOrCode,
-            },
-          });
-        }
-      }
+      // Simpan ke state global aplikasi sesuai tipe CurrentUser
+      const profile =
+        mode === 'login'
+          ? await loginUser(email, password)
+          : await registerUser(email, password, name, role, nimOrCode);
+      masuk(toCurrentUser(profile));
     } catch (err: any) {
       console.warn('Firebase Auth error:', err);
-      const pesan = formatAuthError(err?.code || err?.message || '');
+      const pesan = formatAuthError(err?.code ?? '', {
+        role: mode === 'register' ? role : undefined,
+      });
       setErrorMessage(pesan);
     } finally {
       setLoading(false);
@@ -271,8 +238,8 @@ export function AuthScreen({ onBypassDemo }: Props) {
           </Pressable>
         </View>
 
-        {/* Opsi Beralih ke Mode Demo (Fallback Sprint 1) */}
-        {onBypassDemo && (
+        {/* Opsi Beralih ke Mode Demo (Fallback Sprint 1) — hanya di build development */}
+        {__DEV__ && onBypassDemo && (
           <Pressable style={styles.bypassBtn} onPress={onBypassDemo}>
             <Text style={styles.bypassText}>Gunakan Data Dummy Demo (Sprint 1) &rarr;</Text>
           </Pressable>

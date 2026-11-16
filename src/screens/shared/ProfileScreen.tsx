@@ -6,6 +6,7 @@ import { Button } from '../../components/Button';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ProfileCard } from '../../components/ProfileCard';
 import { usePrakti } from '../../context/PraktiContext';
+import { logoutUser } from '../../services/authService';
 import { colors, spacing } from '../../theme';
 import { toTitleCase } from '../../utils/text';
 
@@ -29,16 +30,22 @@ export function ProfileScreen() {
       <AppHeader subtitle="Profil" />
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
         <ProfileCard {...profil} />
-        <Button label="Ganti Peran" variant="outline" icon="swap-horizontal" onPress={() => setConfirm(true)} />
+        <Button label="Keluar" variant="outline" icon="log-out-outline" onPress={() => setConfirm(true)} />
       </ScrollView>
       <ConfirmModal
         visible={confirm}
-        title="Ganti peran?"
-        message="Kamu akan kembali ke layar pemilihan peran. Data dummy tetap tersimpan selama aplikasi terbuka."
-        confirmLabel="Ganti Peran"
+        title="Keluar dari akun?"
+        message="Kamu akan keluar dari akun dan kembali ke halaman login."
+        confirmLabel="Keluar"
         onCancel={() => setConfirm(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           setConfirm(false);
+          try {
+            // Akhiri sesi Firebase Auth (SRS-007); aman juga untuk mode demo yang tidak login Firebase
+            await logoutUser();
+          } catch (err) {
+            console.warn('Gagal logout dari Firebase:', err);
+          }
           keluar();
         }}
       />
