@@ -14,13 +14,13 @@ import {
 import { AppHeader } from '../../components/AppHeader';
 import { Card } from '../../components/Card';
 import { EmptyState } from '../../components/EmptyState';
-import { StatusPill } from '../../components/StatusPill';
+import { IzinStatusBadge } from '../../components/IzinStatusBadge';
 import { useCurrentAsisten } from '../../context/PraktiContext';
 import {
+  formatIzinError,
   periksaIzin,
   subscribeDaftarIzin,
   type PengajuanIzin,
-  type StatusIzin,
 } from '../../services/izinService';
 import { cardShadow, colors, radius, spacing, typography } from '../../theme';
 
@@ -29,6 +29,9 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
   const [daftarIzin, setDaftarIzin] = useState<PengajuanIzin[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorKoneksi, setErrorKoneksi] = useState<string | null>(null);
+  const [dariCache, setDariCache] = useState<boolean>(false);
+  // Dinaikkan saat tombol "Coba Lagi" ditekan untuk memasang ulang listener
+  const [percobaan, setPercobaan] = useState<number>(0);
 
   // State untuk modal konfirmasi keputusan
   const [selectedIzin, setSelectedIzin] = useState<PengajuanIzin | null>(null);
@@ -41,19 +44,25 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
 
     // Berlangganan data izin real-time via Firestore (SRS-011)
     const unsubscribe = subscribeDaftarIzin(
-      (data) => {
-        setDaftarIzin(data);
+      ({ daftar, dariCache: cache }) => {
+        setDaftarIzin(daftar);
+        setDariCache(cache);
         setLoading(false);
       },
       (err) => {
         console.warn('Gagal memuat izin real-time:', err);
-        setErrorKoneksi('Gagal memuat data izin. Periksa koneksi internet Anda.');
+        setErrorKoneksi(formatIzinError(err));
         setLoading(false);
       },
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [percobaan]);
+
+  const tutupKonfirmasi = () => {
+    setSelectedIzin(null);
+    setActionType(null);
+  };
 
   const handleBukaKonfirmasi = (item: PengajuanIzin, type: 'Disetujui' | 'Ditolak') => {
     setSelectedIzin(item);
@@ -61,41 +70,18 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
   };
 
   const handleEksekusiKeputusan = async () => {
-    if (!selectedIzin?.id || !actionType) return;
+    if (!selectedIzin?.id || !actionType || !asisten) return;
     setProcessing(true);
 
     try {
-      const namaAsisten = asisten?.nama || 'Asisten';
-      await periksaIzin(selectedIzin.id, actionType, namaAsisten);
-      setSelectedIzin(null);
-      setActionType(null);
-    } catch (err: any) {
-      Alert.alert('Gagal', err?.message || 'Gagal memperbarui status izin.');
+      await periksaIzin(selectedIzin.id, actionType, { uid: asisten.id, nama: asisten.nama });
+      tutupKonfirmasi();
+    } catch (err) {
+      tutupKonfirmasi();
+      Alert.alert('Gagal memperbarui status izin', formatIzinError(err));
     } finally {
       setProcessing(false);
     }
-  };
-
-  const renderBadge = (status: StatusIzin) => {
-    if (status === 'Disetujui') {
-      return (
-        <View style={[styles.badge, { backgroundColor: colors.successBg, borderColor: colors.successBorder }]}>
-          <Text style={[styles.badgeText, { color: colors.successText }]}>Disetujui</Text>
-        </View>
-      );
-    }
-    if (status === 'Ditolak') {
-      return (
-        <View style={[styles.badge, { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder }]}>
-          <Text style={[styles.badgeText, { color: colors.danger }]}>Ditolak</Text>
-        </View>
-      );
-    }
-    return (
-      <View style={[styles.badge, { backgroundColor: colors.neutralBg, borderColor: colors.divider }]}>
-        <Text style={[styles.badgeText, { color: colors.accentText }]}>Menunggu</Text>
-      </View>
-    );
   };
 
   return (
@@ -103,6 +89,16 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
       <AppHeader subtitle="Pemeriksaan Izin" onBack={() => navigation.goBack()} />
 
       <View style={styles.container}>
+        {/* Penanda offline: data dari cache, keputusan baru tidak bisa dikirim */}
+        {!loading && !errorKoneksi && dariCache ? (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={16} color={colors.danger} />
+            <Text style={styles.offlineText}>
+              Sedang offline. Data mungkin belum terbaru dan keputusan belum bisa dikirim.
+            </Text>
+          </View>
+        ) : null}
+
         {/* State 1: Loading */}
         {loading ? (
           <View style={styles.centerBox}>
@@ -116,6 +112,10 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
               <Ionicons name="cloud-offline-outline" size={44} color={colors.danger} />
               <Text style={styles.errorTitle}>Koneksi Bermasalah</Text>
               <Text style={styles.errorDesc}>{errorKoneksi}</Text>
+              <Pressable style={styles.retryBtn} onPress={() => setPercobaan((n) => n + 1)}>
+                <Ionicons name="refresh" size={16} color={colors.surface} />
+                <Text style={styles.retryText}>Coba Lagi</Text>
+              </Pressable>
             </View>
           </View>
         ) : daftarIzin.length === 0 ? (
@@ -138,7 +138,7 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
                     <Text style={styles.praktikanNama}>{item.praktikanNama}</Text>
                     <Text style={styles.praktikanNim}>{item.praktikanNim}</Text>
                   </View>
-                  {renderBadge(item.status)}
+                  <IzinStatusBadge status={item.status} />
                 </View>
 
                 <View style={styles.divider} />
@@ -207,7 +207,7 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
               <Pressable
                 disabled={processing}
                 style={[styles.modalBtn, styles.modalBtnCancel]}
-                onPress={() => setSelectedIzin(null)}
+                onPress={tutupKonfirmasi}
               >
                 <Text style={styles.modalBtnCancelText}>Batal</Text>
               </Pressable>
@@ -251,6 +251,30 @@ const styles = StyleSheet.create({
   },
   errorTitle: { ...typography.title, color: colors.danger, marginTop: spacing.sm },
   errorDesc: { ...typography.caption, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.sm,
+    backgroundColor: colors.navy,
+  },
+  retryText: { ...typography.button, color: colors.surface, fontSize: 13 },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    backgroundColor: colors.dangerBg,
+    borderColor: colors.dangerBorder,
+  },
+  offlineText: { ...typography.caption, color: colors.danger, flex: 1 },
 
   cardItem: { marginBottom: spacing.md, padding: spacing.md },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -272,13 +296,6 @@ const styles = StyleSheet.create({
   alasanText: { ...typography.body, color: colors.textPrimary },
   reviewedBy: { ...typography.caption, color: colors.textSecondary, fontStyle: 'italic', marginTop: spacing.xs },
 
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  badgeText: { fontSize: 12, fontWeight: '700' },
 
   actionRow: {
     flexDirection: 'row',
