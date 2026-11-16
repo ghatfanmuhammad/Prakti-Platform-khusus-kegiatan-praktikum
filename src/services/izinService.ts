@@ -7,14 +7,21 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  updateDoc,
   where,
   type FirestoreError,
   type QuerySnapshot,
 } from 'firebase/firestore';
 
+import { formatAiError, klasifikasiAlasan } from './aiService';
 import { db } from './firebase';
 
 export type StatusIzin = 'Menunggu' | 'Disetujui' | 'Ditolak';
+export type StatusAI = 'berhasil' | 'gagal';
+
+/** Batas panjang alasan izin (karakter). */
+export const ALASAN_MIN = 10;
+export const ALASAN_MAX = 500;
 
 export interface PengajuanIzin {
   id?: string;
@@ -29,8 +36,55 @@ export interface PengajuanIzin {
   reviewedBy?: string;
   /** UID asisten yang meninjau (dicek oleh Security Rules). */
   reviewedByUid?: string;
+  /** Prediksi kategori alasan dari model AI (informasi pendukung, bukan keputusan). */
+  kategoriAI?: string | null;
+  /** Tingkat keyakinan prediksi 0..1. */
+  confidenceAI?: number | null;
+  statusAI?: StatusAI;
+  /** Pesan singkat bila klasifikasi AI gagal. */
+  pesanAI?: string | null;
+  diklasifikasiPada?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
+}
+
+type FieldAI = Pick<PengajuanIzin, 'kategoriAI' | 'confidenceAI' | 'statusAI' | 'pesanAI'> & {
+  diklasifikasiPada: ReturnType<typeof serverTimestamp>;
+};
+
+/**
+ * Menjalankan klasifikasi AI dan SELALU mengembalikan field untuk disimpan,
+ * termasuk saat AI gagal, supaya pengajuan izin tidak terhambat oleh layanan AI.
+ */
+async function jalankanKlasifikasi(alasan: string): Promise<FieldAI> {
+  try {
+    const hasil = await klasifikasiAlasan(alasan);
+    return {
+      kategoriAI: hasil.kategori,
+      confidenceAI: hasil.confidence,
+      statusAI: 'berhasil',
+      pesanAI: null,
+      diklasifikasiPada: serverTimestamp(),
+    };
+  } catch (err) {
+    console.warn('Klasifikasi AI gagal:', err);
+    return {
+      kategoriAI: null,
+      confidenceAI: null,
+      statusAI: 'gagal',
+      pesanAI: formatAiError(err),
+      diklasifikasiPada: serverTimestamp(),
+    };
+  }
+}
+
+/** Validasi alasan izin. Mengembalikan pesan error, atau null bila valid. */
+export function validasiAlasan(alasan: string): string | null {
+  const teks = alasan.trim();
+  if (!teks) return 'Alasan izin wajib diisi.';
+  if (teks.length < ALASAN_MIN) return `Alasan izin terlalu pendek (minimal ${ALASAN_MIN} karakter).`;
+  if (teks.length > ALASAN_MAX) return `Alasan izin terlalu panjang (maksimal ${ALASAN_MAX} karakter).`;
+  return null;
 }
 
 export interface DaftarIzinSnapshot {
@@ -67,22 +121,49 @@ function mapSnapshot(snapshot: QuerySnapshot): DaftarIzinSnapshot {
   };
 }
 
-/**
- * [SRS-010 - Praktikan] Mengajukan permohonan izin
- */
-export async function ajukanIzin(data: Omit<PengajuanIzin, 'id' | 'status' | 'reviewedBy' | 'reviewedByUid' | 'createdAt' | 'updatedAt'>) {
-  if (!data.alasan || data.alasan.trim().length < 5) {
-    throw new Error('Alasan izin terlalu pendek atau tidak boleh kosong.');
-  }
+export type DataPengajuanIzin = Pick<
+  PengajuanIzin,
+  'praktikanId' | 'praktikanNama' | 'praktikanNim' | 'sesiId' | 'sesiNama' | 'alasan'
+>;
 
-  const colRef = collection(db, 'izin');
-  return await addDoc(colRef, {
-    ...data,
-    alasan: data.alasan.trim(),
+/**
+ * [SRS-010 - Praktikan] Mengajukan permohonan izin.
+ * Alasan dikirim dulu ke AI untuk prediksi kategori, lalu disimpan bersama pengajuan.
+ * Status tetap 'Menunggu' apa pun hasil AI; keputusan hanya oleh asisten.
+ * Mengembalikan hasil AI agar UI bisa memberi tahu praktikan bila AI gagal.
+ */
+export async function ajukanIzin(data: DataPengajuanIzin) {
+  const pesanValidasi = validasiAlasan(data.alasan ?? '');
+  if (pesanValidasi) throw new Error(pesanValidasi);
+  if (!data.sesiId) throw new Error('Pilih sesi yang ingin diajukan izinnya.');
+
+  const alasan = data.alasan.trim();
+  const fieldAI = await jalankanKlasifikasi(alasan);
+
+  const ref = await addDoc(collection(db, 'izin'), {
+    praktikanId: data.praktikanId,
+    praktikanNama: data.praktikanNama,
+    praktikanNim: data.praktikanNim,
+    sesiId: data.sesiId,
+    sesiNama: data.sesiNama,
+    alasan,
     status: 'Menunggu',
+    ...fieldAI,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  return { id: ref.id, statusAI: fieldAI.statusAI, pesanAI: fieldAI.pesanAI };
+}
+
+/**
+ * [Asisten] Mengulang klasifikasi AI, mis. saat layanan AI sebelumnya tidak merespons.
+ * Hanya memperbarui field AI; status keputusan izin tidak disentuh.
+ */
+export async function klasifikasiUlangIzin(izinId: string, alasan: string): Promise<FieldAI> {
+  const fieldAI = await jalankanKlasifikasi(alasan);
+  await updateDoc(doc(db, 'izin', izinId), { ...fieldAI });
+  return fieldAI;
 }
 
 /**

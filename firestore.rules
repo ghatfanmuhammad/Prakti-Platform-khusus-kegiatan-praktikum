@@ -71,6 +71,23 @@ service cloud.firestore {
 
     // ---------- izin/{izinId}: pengajuan izin (SRS-010) & pemeriksaan (SRS-011) ----------
     match /izin/{izinId} {
+      // Field hasil klasifikasi AI (informasi pendukung; tidak memengaruhi status izin)
+      function fieldAI() {
+        return ['kategoriAI', 'confidenceAI', 'statusAI', 'pesanAI', 'diklasifikasiPada'];
+      }
+
+      function hasilAIValid(d) {
+        return d.statusAI in ['berhasil', 'gagal']
+          && (d.kategoriAI == null || (d.kategoriAI is string && d.kategoriAI.size() <= 100))
+          && (d.confidenceAI == null
+              || ((d.confidenceAI is number) && d.confidenceAI >= 0 && d.confidenceAI <= 1))
+          && (d.pesanAI == null || (d.pesanAI is string && d.pesanAI.size() <= 200))
+          && d.diklasifikasiPada == request.time
+          // Berhasil wajib punya kategori; gagal tidak boleh punya kategori
+          && ((d.statusAI == 'berhasil' && d.kategoriAI is string)
+              || (d.statusAI == 'gagal' && d.kategoriAI == null));
+      }
+
       // Asisten melihat semua; praktikan hanya izin miliknya
       allow read: if isAsisten()
         || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
@@ -79,14 +96,23 @@ service cloud.firestore {
       allow create: if isPraktikan()
         && request.resource.data.keys().hasOnly([
              'praktikanId', 'praktikanNama', 'praktikanNim', 'sesiId', 'sesiNama',
-             'alasan', 'status', 'createdAt', 'updatedAt'])
+             'alasan', 'status', 'createdAt', 'updatedAt'].concat(fieldAI()))
+        && request.resource.data.keys().hasAll(fieldAI())
         && request.resource.data.praktikanId == request.auth.uid
         && request.resource.data.sesiId is string && request.resource.data.sesiId.size() > 0
         && request.resource.data.alasan is string
-        && request.resource.data.alasan.trim().size() >= 5
+        && request.resource.data.alasan.trim().size() >= 10
+        && request.resource.data.alasan.size() <= 500
+        // AI tidak boleh menentukan keputusan: izin baru selalu Menunggu
         && request.resource.data.status == 'Menunggu'
+        && hasilAIValid(request.resource.data)
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
+
+      // Asisten mengulang klasifikasi AI: hanya field AI yang boleh berubah
+      allow update: if isAsisten()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(fieldAI())
+        && hasilAIValid(request.resource.data);
 
       // Hanya asisten yang memutuskan, hanya sekali (dari Menunggu), dan tercatat UID-nya
       allow update: if isAsisten()

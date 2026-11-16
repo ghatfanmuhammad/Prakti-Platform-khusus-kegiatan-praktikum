@@ -14,10 +14,12 @@ import {
 import { AppHeader } from '../../components/AppHeader';
 import { Card } from '../../components/Card';
 import { EmptyState } from '../../components/EmptyState';
+import { HasilAIBox } from '../../components/HasilAIBox';
 import { IzinStatusBadge } from '../../components/IzinStatusBadge';
 import { useCurrentAsisten } from '../../context/PraktiContext';
 import {
   formatIzinError,
+  klasifikasiUlangIzin,
   periksaIzin,
   subscribeDaftarIzin,
   type PengajuanIzin,
@@ -37,6 +39,7 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
   const [selectedIzin, setSelectedIzin] = useState<PengajuanIzin | null>(null);
   const [actionType, setActionType] = useState<'Disetujui' | 'Ditolak' | null>(null);
   const [processing, setProcessing] = useState<boolean>(false);
+  const [reklasifikasiId, setReklasifikasiId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -64,7 +67,23 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
     setActionType(null);
   };
 
-  const handleBukaKonfirmasi = (item: PengajuanIzin, type: 'Disetujui' | 'Ditolak') => {
+  // [Sprint 2 #6] Ulangi klasifikasi AI bila sebelumnya gagal (mis. layanan AI tidak merespons)
+  const handleKlasifikasiUlang = async (item: PengajuanIzin) => {
+    if (!item.id || reklasifikasiId) return;
+    setReklasifikasiId(item.id);
+    try {
+      const hasil = await klasifikasiUlangIzin(item.id, item.alasan);
+      if (hasil.statusAI === 'gagal') {
+        Alert.alert('Klasifikasi AI gagal', hasil.pesanAI ?? 'Coba lagi beberapa saat lagi.');
+      }
+    } catch (err) {
+      Alert.alert('Gagal menyimpan hasil AI', formatIzinError(err));
+    } finally {
+      setReklasifikasiId(null);
+    }
+  };
+
+  const handleBukaKonfirmasi =(item: PengajuanIzin, type: 'Disetujui' | 'Ditolak') => {
     setSelectedIzin(item);
     setActionType(type);
   };
@@ -152,6 +171,12 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
                   <Text style={styles.alasanLabel}>Alasan Izin:</Text>
                   <Text style={styles.alasanText}>{item.alasan}</Text>
                 </View>
+
+                <HasilAIBox
+                  izin={item}
+                  memproses={reklasifikasiId === item.id}
+                  onKlasifikasiUlang={() => handleKlasifikasiUlang(item)}
+                />
 
                 {item.reviewedBy ? (
                   <Text style={styles.reviewedBy}>Ditinjau oleh: {item.reviewedBy}</Text>
