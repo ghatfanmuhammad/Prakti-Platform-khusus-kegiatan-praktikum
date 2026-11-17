@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -12,6 +13,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 
+import type { CurrentUser } from '../types';
 import { auth, db } from './firebase';
 
 export type UserRole = 'asisten' | 'praktikan';
@@ -25,13 +27,24 @@ export interface UserProfile {
   createdAt?: unknown;
 }
 
+/** Kode error buatan aplikasi (bukan dari Firebase). */
+const PROFILE_NOT_FOUND = 'app/profile-not-found';
+
+class AppAuthError extends Error {
+  constructor(public code: string, message: string) {
+    super(message);
+  }
+}
+
 /**
- * Menerjemahkan kode error Firebase Auth ke pesan berbahasa Indonesia (SRS-007)
+ * Menerjemahkan kode error Firebase Auth / Firestore ke pesan berbahasa Indonesia (SRS-007)
  */
-export function formatAuthError(errorCode: string): string {
+export function formatAuthError(errorCode: string, context?: { role?: UserRole }): string {
   switch (errorCode) {
     case 'auth/invalid-email':
       return 'Format email tidak valid.';
+    case 'auth/missing-password':
+      return 'Kata sandi wajib diisi.';
     case 'auth/user-disabled':
       return 'Akun ini telah dinonaktifkan.';
     case 'auth/user-not-found':
@@ -42,15 +55,38 @@ export function formatAuthError(errorCode: string): string {
       return 'Email sudah terdaftar. Silakan login.';
     case 'auth/weak-password':
       return 'Kata sandi terlalu lemah (minimal 6 karakter).';
+    case 'auth/too-many-requests':
+      return 'Terlalu banyak percobaan gagal. Tunggu beberapa saat lalu coba lagi.';
     case 'auth/network-request-failed':
+    case 'unavailable':
       return 'Gagal terhubung ke internet. Periksa koneksi Anda.';
+    case 'permission-denied':
+      return context?.role === 'asisten'
+        ? 'Email ini belum terdaftar sebagai asisten. Hubungi koordinator praktikum.'
+        : 'Akses ditolak. Data pendaftaran tidak valid.';
+    case PROFILE_NOT_FOUND:
+      return 'Profil akun tidak ditemukan. Silakan daftar ulang atau hubungi koordinator.';
     default:
       return 'Terjadi kesalahan autentikasi. Silakan coba lagi.';
   }
 }
 
 /**
- * Registrasi akun baru dengan role asisten / praktikan (SRS-007)
+ * Mengubah profil Firestore menjadi bentuk user yang dipakai state aplikasi.
+ */
+export function toCurrentUser(profile: UserProfile): CurrentUser {
+  if (profile.role === 'asisten') {
+    return { role: 'asisten', asisten: { id: profile.uid, nama: profile.name } };
+  }
+  return {
+    role: 'praktikan',
+    praktikan: { id: profile.uid, nama: profile.name, nim: profile.nimOrCode },
+  };
+}
+
+/**
+ * Registrasi akun baru dengan role asisten / praktikan (SRS-007).
+ * Role asisten hanya diterima Security Rules bila email ada di koleksi `asisten_terdaftar`.
  */
 export async function registerUser(
   email: string,
@@ -64,17 +100,25 @@ export async function registerUser(
 
   const profile: UserProfile = {
     uid,
-    email: email.trim(),
+    // Pakai email dari Firebase Auth (sudah dinormalisasi) agar cocok dengan token di Security Rules
+    email: cred.user.email ?? email.trim().toLowerCase(),
     name: name.trim(),
     role,
     nimOrCode: nimOrCode.trim(),
   };
 
-  // Simpan data peran dan identitas pengguna ke koleksi Firestore "users"
-  await setDoc(doc(db, 'users', uid), {
-    ...profile,
-    createdAt: serverTimestamp(),
-  });
+  try {
+    // Simpan data peran dan identitas pengguna ke koleksi Firestore "users"
+    await setDoc(doc(db, 'users', uid), {
+      ...profile,
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    // Profil gagal disimpan (mis. ditolak Security Rules): hapus akun Auth
+    // supaya tidak ada akun "yatim" tanpa profil/peran.
+    await deleteUser(cred.user).catch(() => signOut(auth));
+    throw err;
+  }
 
   return profile;
 }
@@ -84,14 +128,14 @@ export async function registerUser(
  */
 export async function loginUser(email: string, pass: string): Promise<UserProfile> {
   const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
-  const uid = cred.user.uid;
+  const profile = await getUserProfile(cred.user.uid);
 
-  const userDoc = await getDoc(doc(db, 'users', uid));
-  if (!userDoc.exists()) {
-    throw new Error('Data profil pengguna tidak ditemukan di Firestore.');
+  if (!profile) {
+    await signOut(auth);
+    throw new AppAuthError(PROFILE_NOT_FOUND, 'Data profil pengguna tidak ditemukan di Firestore.');
   }
 
-  return userDoc.data() as UserProfile;
+  return profile;
 }
 
 /**
