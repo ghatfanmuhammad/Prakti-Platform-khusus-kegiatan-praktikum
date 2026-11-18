@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { BottomBar, type BottomBarItem } from '../components/BottomBar';
 import { CheckInFlowProvider, useCheckInFlow } from '../features/praktikan/CheckInFlow';
+import { AjukanIzinScreen } from '../screens/praktikan/AjukanIzinScreen';
 import { HistoryScreen } from '../screens/praktikan/HistoryScreen';
 import { PraktikanHomeScreen } from '../screens/praktikan/PraktikanHomeScreen';
 import { StatusIzinScreen } from '../screens/praktikan/StatusIzinScreen';
@@ -41,6 +42,7 @@ export function PraktikanNavigator() {
         <Stack.Screen name="SessionDetail" component={SessionDetailScreen} />
         <Stack.Screen name="History" component={HistoryScreen} />
         <Stack.Screen name="StatusIzin" component={StatusIzinScreen} />
+        <Stack.Screen name="AjukanIzin" component={AjukanIzinScreen} />
       </Stack.Navigator>
     </CheckInFlowProvider>
   );

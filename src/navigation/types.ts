@@ -18,4 +18,6 @@ export type AppStackParamList = {
   History: undefined;
   /** Hanya praktikan: status pengajuan izin & keputusan asisten (SRS-011). */
   StatusIzin: undefined;
+  /** Hanya praktikan: form pengajuan izin (SRS-010). */
+  AjukanIzin: undefined;
 };
