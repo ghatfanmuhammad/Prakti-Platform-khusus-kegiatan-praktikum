@@ -30,9 +30,23 @@ const izin = (sesiId, status, praktikanId = 'pr-1') => ({
   sesiId, status, praktikanId, praktikanNama: 'Reva', praktikanNim: '123', sesiNama: 'x', alasan: 'Sakit demam tinggi',
 });
 
-test('sesi yang sudah ditutup tidak bisa diajukan izin', () => {
-  const hasil = daftarPilihanSesiIzin([sesi('s1', 'ditutup'), sesi('s2', 'dibuka')], [], [], 'pr-1');
+test('izin bisa diajukan kapan saja, termasuk sesi yang sudah ditutup', () => {
+  const hasil = daftarPilihanSesiIzin(
+    [sesi('s1', 'ditutup'), sesi('s2', 'dibuka'), sesi('s3', 'belum_dibuka')], [], [], 'pr-1',
+  );
+  assert.deepEqual(hasil.map((p) => p.sesi.id).sort(), ['s1', 's2', 's3']);
+  assert.ok(hasil.every((p) => p.izinAktif === undefined));
+});
+
+test('sesi yang sudah ditutup dan sudah dihadiri tetap disembunyikan', () => {
+  const presensi = [{ sesiId: 's1', praktikanId: 'pr-1', waktuHadir: '2026-11-20T08:05:00Z' }];
+  const hasil = daftarPilihanSesiIzin([sesi('s1', 'ditutup'), sesi('s2', 'ditutup')], presensi, [], 'pr-1');
   assert.deepEqual(hasil.map((p) => p.sesi.id), ['s2']);
+});
+
+test('sesi yang sudah ditutup tetap terkunci bila sudah ada izin Menunggu', () => {
+  const hasil = daftarPilihanSesiIzin([sesi('s1', 'ditutup')], [], [izin('s1', 'Menunggu')], 'pr-1');
+  assert.equal(hasil[0].izinAktif.status, 'Menunggu');
 });
 
 test('sesi yang sudah dihadiri praktikan disembunyikan, presensi orang lain tidak berpengaruh', () => {
@@ -62,12 +76,18 @@ test('ditolak lalu diajukan ulang dan Menunggu: sesi terkunci lagi', () => {
   assert.equal(izinAktifUntukSesi([izin('s1', 'Ditolak'), izin('s1', 'Menunggu')], 's1').status, 'Menunggu');
 });
 
-test('sesi diurutkan dari yang terdekat', () => {
+test('sesi berjalan diurutkan terdekat dulu, lalu sesi lewat dari yang terbaru', () => {
   const hasil = daftarPilihanSesiIzin(
-    [sesi('b', 'belum_dibuka', '2026-11-21'), sesi('c', 'belum_dibuka', '2026-11-20', '13:00'), sesi('a', 'dibuka', '2026-11-20')],
+    [
+      sesi('b', 'belum_dibuka', '2026-11-21'),
+      sesi('lama', 'ditutup', '2026-11-06'),
+      sesi('c', 'belum_dibuka', '2026-11-20', '13:00'),
+      sesi('baru', 'ditutup', '2026-11-13'),
+      sesi('a', 'dibuka', '2026-11-20'),
+    ],
     [], [], 'pr-1',
   );
-  assert.deepEqual(hasil.map((p) => p.sesi.id), ['a', 'c', 'b']);
+  assert.deepEqual(hasil.map((p) => p.sesi.id), ['a', 'c', 'b', 'baru', 'lama']);
 });
 
 test('nama sesi memuat praktikum, kelas, dan tanggal', () => {

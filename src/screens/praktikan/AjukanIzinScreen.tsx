@@ -111,7 +111,7 @@ export function AjukanIzinScreen({ navigation }: Props) {
   };
 
   const terpilih = pilihan.find((p) => p.sesi.id === sesiId);
-  // Sesi yang dipilih bisa berubah status secara real-time (mis. ditutup asisten).
+  // Sesi yang dipilih bisa jadi tidak tersedia secara real-time (mis. presensi tercatat dari perangkat lain).
   const sesiValid = terpilih && !terpilih.izinAktif ? terpilih.sesi : undefined;
   const errorSesi = sesiValid
     ? null
@@ -164,7 +164,7 @@ export function AjukanIzinScreen({ navigation }: Props) {
         <EmptyState
           icon="calendar-clear-outline"
           title="Tidak ada sesi untuk diajukan izin"
-          description="Izin hanya bisa diajukan untuk sesi kelasmu yang belum ditutup dan belum kamu hadiri."
+          description="Izin bisa diajukan untuk sesi kelasmu yang belum kamu hadiri, termasuk sesi yang sudah lewat."
         />
       ) : (
         <KeyboardAvoidingView
@@ -211,6 +211,7 @@ export function AjukanIzinScreen({ navigation }: Props) {
                         </Text>
                         <Text style={styles.optionMeta}>
                           {formatTanggal(s.tanggal)}, {s.mulai} - {s.selesai}
+                          {s.status === 'ditutup' ? ' · Sesi sudah lewat' : ''}
                         </Text>
                         {izinAktif ? (
                           <View style={styles.optionNote}>
