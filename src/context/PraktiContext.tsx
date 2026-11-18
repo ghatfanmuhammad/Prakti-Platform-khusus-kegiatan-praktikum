@@ -4,13 +4,18 @@ import {
   useContext,
   useMemo,
   useReducer,
+  useState,
   type ReactNode,
 } from 'react';
 
 import { DAFTAR_ASISTEN, DAFTAR_PRAKTIKAN } from '../data';
+import { saveAttendance } from '../features/data-praktikum/attendance';
+import { usePracticumData } from '../features/data-praktikum/hooks';
+import { changeSessionStatus } from '../features/data-praktikum/repository';
 import type { Asisten, CurrentUser, Praktikan, Presensi, Sesi } from '../types';
 import { evaluateCheckIn, type CheckInResult } from '../utils/attendanceRules';
 import { buatKodeSesi } from '../utils/code';
+import { cariSesi } from '../utils/selectors';
 import { initialState, praktiReducer } from './reducer';
 
 interface PraktiContextValue {
@@ -19,62 +24,92 @@ interface PraktiContextValue {
   praktikanList: Praktikan[];
   sesi: Sesi[];
   presensi: Presensi[];
-  masuk: (user: CurrentUser) => void;
+  masuk: (user: CurrentUser, demo?: boolean) => void;
   keluar: () => void;
-  bukaSesi: (sesiId: string, topik: string | null) => void;
-  tutupSesi: (sesiId: string) => void;
-  /** Mencatat presensi bila aturan terpenuhi; hasilnya dipakai UI untuk umpan balik. */
-  catatPresensi: (sesiId: string, praktikanId: string, kode: string) => CheckInResult;
+  practicum: ReturnType<typeof usePracticumData> | null;
+  retryPracticum: () => void;
+  pesertaSesi: (sesi: Sesi) => Praktikan[];
+  bukaSesi: (sesiId: string, topik: string | null) => Promise<void>;
+  tutupSesi: (sesiId: string) => Promise<void>;
+  catatPresensi: (sesiId: string, praktikanId: string, kode: string) => Promise<CheckInResult>;
 }
 
 const PraktiContext = createContext<PraktiContextValue | null>(null);
 
 export function PraktiProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(praktiReducer, initialState);
+  const [attempt, setAttempt] = useState(0);
+  const retryPracticum = useCallback(() => setAttempt((retry) => retry + 1), []);
+  const user = state.currentUser;
+  const role = user?.role;
+  const uid = user?.role === 'asisten' ? user.asisten.id : user?.praktikan.id;
+  const identity = role && uid && !state.demo ? { role, uid } : null;
+  const data = usePracticumData(identity, attempt);
+  const practicum = identity ? data : null;
+  const sesi = state.demo ? state.sesi : data.sesi;
+  const presensi = state.demo ? state.presensi : data.presensi;
+  const asistenList = useMemo(() =>
+    state.demo || !user ? DAFTAR_ASISTEN : user?.role === 'asisten' ? [user.asisten] : [],
+    [state.demo, user],
+  );
+  const pesertaSesi = useCallback((target: Sesi) =>
+    state.demo
+      ? DAFTAR_PRAKTIKAN
+      : data.participants.data
+          .filter((p) => p.classId === target.classId)
+          .map(({ uid: id, nama, nim }) => ({ id, nama, nim })),
+    [state.demo, data.participants.data],
+  );
 
-  const masuk = useCallback((user: CurrentUser) => dispatch({ type: 'MASUK', user }), []);
+  const masuk = useCallback((user: CurrentUser, demo = false) => dispatch({ type: 'MASUK', user, demo }), []);
   const keluar = useCallback(() => dispatch({ type: 'KELUAR' }), []);
 
-  const bukaSesi = useCallback(
-    (sesiId: string, topik: string | null) =>
-      dispatch({ type: 'BUKA_SESI', sesiId, topik, kode: buatKodeSesi() }),
-    [],
-  );
+  const bukaSesi = async (sesiId: string, topik: string | null) => {
+    if (state.demo) {
+      dispatch({ type: 'BUKA_SESI', sesiId, topik, kode: buatKodeSesi() });
+      return;
+    }
+    const target = cariSesi(sesi, sesiId);
+    if (!target?.classId || !target.sessionId) throw new Error('Sesi tidak ditemukan.');
+    await changeSessionStatus(target.classId, target.sessionId, 'dibuka', topik);
+  };
 
-  const tutupSesi = useCallback(
-    (sesiId: string) => dispatch({ type: 'TUTUP_SESI', sesiId }),
-    [],
-  );
+  const tutupSesi = async (sesiId: string) => {
+    if (state.demo) {
+      dispatch({ type: 'TUTUP_SESI', sesiId });
+      return;
+    }
+    const target = cariSesi(sesi, sesiId);
+    if (!target?.classId || !target.sessionId) throw new Error('Sesi tidak ditemukan.');
+    await changeSessionStatus(target.classId, target.sessionId, 'ditutup');
+  };
 
-  const catatPresensi = useCallback(
-    (sesiId: string, praktikanId: string, kode: string): CheckInResult => {
-      const hasil = evaluateCheckIn(
-        { sesi: state.sesi, presensi: state.presensi },
-        sesiId,
-        praktikanId,
-        kode,
-      );
-      if (hasil.ok) dispatch({ type: 'TAMBAH_PRESENSI', presensi: hasil.presensi });
-      return hasil;
-    },
-    [state.sesi, state.presensi],
-  );
+  const catatPresensi = async (sesiId: string, praktikanId: string, kode: string): Promise<CheckInResult> => {
+    if (!state.demo) {
+      const target = cariSesi(sesi, sesiId);
+      if (!target) return { ok: false, reason: 'SESI_TIDAK_DITEMUKAN' };
+      return saveAttendance(target, praktikanId, kode);
+    }
+    const hasil = evaluateCheckIn({ sesi, presensi }, sesiId, praktikanId, kode);
+    if (hasil.ok) dispatch({ type: 'TAMBAH_PRESENSI', presensi: hasil.presensi });
+    return hasil;
+  };
 
-  const value = useMemo<PraktiContextValue>(
-    () => ({
-      currentUser: state.currentUser,
-      asistenList: DAFTAR_ASISTEN,
-      praktikanList: DAFTAR_PRAKTIKAN,
-      sesi: state.sesi,
-      presensi: state.presensi,
-      masuk,
-      keluar,
-      bukaSesi,
-      tutupSesi,
-      catatPresensi,
-    }),
-    [state, masuk, keluar, bukaSesi, tutupSesi, catatPresensi],
-  );
+  const value: PraktiContextValue = {
+    currentUser: user,
+    asistenList,
+    praktikanList: user && !state.demo ? [] : DAFTAR_PRAKTIKAN,
+    sesi,
+    presensi,
+    practicum,
+    retryPracticum,
+    pesertaSesi,
+    masuk,
+    keluar,
+    bukaSesi,
+    tutupSesi,
+    catatPresensi,
+  };
 
   return <PraktiContext.Provider value={value}>{children}</PraktiContext.Provider>;
 }

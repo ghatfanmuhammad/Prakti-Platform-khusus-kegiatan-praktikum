@@ -16,6 +16,7 @@ import { StatusPill } from '../../components/StatusPill';
 import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
 import { useCheckInFlow } from '../../features/praktikan/CheckInFlow';
 import { PraktikanSessionPanel } from '../../features/praktikan/PraktikanSessionPanel';
+import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
 import type { AppStackParamList, TabParamList } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme';
 import { formatTanggalRelatif } from '../../utils/date';
@@ -29,7 +30,7 @@ type Props = CompositeScreenProps<
 
 export function PraktikanHomeScreen({ navigation }: Props) {
   const praktikan = useCurrentPraktikan();
-  const { sesi, presensi } = usePrakti();
+  const { sesi, presensi, practicum, retryPracticum } = usePrakti();
   const { mulai } = useCheckInFlow();
   if (!praktikan) return null;
 
@@ -65,7 +66,9 @@ export function PraktikanHomeScreen({ navigation }: Props) {
         </Card>
 
         <Text style={styles.section}>Sesi Mendatang</Text>
-        {utama ? (
+        {practicum && (practicum.loading || practicum.error) ? (
+          <PracticumLoading error={practicum.error} onRetry={retryPracticum} />
+        ) : utama ? (
           <Card>
             <View style={styles.titleRow}>
               <View style={styles.titleText}>

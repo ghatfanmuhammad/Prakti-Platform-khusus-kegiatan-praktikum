@@ -46,7 +46,7 @@ export function IdentityPickerSheet({ role, onClose }: Props) {
             <Pressable
               key={a.id}
               accessibilityRole="button"
-              onPress={() => masuk({ role: 'asisten', asisten: a })}
+              onPress={() => masuk({ role: 'asisten', asisten: a }, true)}
               style={styles.item}
             >
               <Text style={styles.name}>{a.nama}</Text>
@@ -58,7 +58,7 @@ export function IdentityPickerSheet({ role, onClose }: Props) {
             <Pressable
               key={p.id}
               accessibilityRole="button"
-              onPress={() => masuk({ role: 'praktikan', praktikan: p })}
+              onPress={() => masuk({ role: 'praktikan', praktikan: p }, true)}
               style={styles.item}
             >
               <Text style={styles.name}>{toTitleCase(p.nama)}</Text>

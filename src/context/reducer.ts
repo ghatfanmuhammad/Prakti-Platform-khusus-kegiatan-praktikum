@@ -3,12 +3,13 @@ import type { CurrentUser, Presensi, Sesi } from '../types';
 
 export interface PraktiState {
   currentUser: CurrentUser | null;
+  demo: boolean;
   sesi: Sesi[];
   presensi: Presensi[];
 }
 
 export type PraktiAction =
-  | { type: 'MASUK'; user: CurrentUser }
+  | { type: 'MASUK'; user: CurrentUser; demo: boolean }
   | { type: 'KELUAR' }
   | { type: 'BUKA_SESI'; sesiId: string; topik: string | null; kode: string }
   | { type: 'TUTUP_SESI'; sesiId: string }
@@ -16,6 +17,7 @@ export type PraktiAction =
 
 export const initialState: PraktiState = {
   currentUser: null,
+  demo: false,
   sesi: SESI_AWAL,
   presensi: PRESENSI_AWAL,
 };
@@ -26,10 +28,10 @@ const ubahSesi = (daftar: Sesi[], sesiId: string, ubah: (sesi: Sesi) => Sesi): S
 export function praktiReducer(state: PraktiState, action: PraktiAction): PraktiState {
   switch (action.type) {
     case 'MASUK':
-      return { ...state, currentUser: action.user };
+      return { ...state, currentUser: action.user, demo: action.demo };
 
     case 'KELUAR':
-      return { ...state, currentUser: null };
+      return { ...state, currentUser: null, demo: false };
 
     case 'BUKA_SESI':
       // Hanya sesi yang belum dibuka yang boleh dibuka; sesi yang ditutup tidak bisa dibuka ulang.

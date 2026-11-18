@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -14,18 +14,34 @@ import { colors, radius, spacing, typography } from '../../theme';
 import type { Sesi } from '../../types';
 import { buatIsiQr } from '../../utils/qr';
 import { presensiSesi } from '../../utils/selectors';
+import { errorMessage } from '../data-praktikum/errors';
 import { OpenSessionSheet } from './OpenSessionSheet';
 
 /** Kontrol sesi untuk asisten: buka, lihat kode dan jumlah hadir, rekap, tutup. */
 export function AsistenSessionPanel({ sesi }: { sesi: Sesi }) {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const { presensi, praktikanList, bukaSesi, tutupSesi } = usePrakti();
+  const { presensi, pesertaSesi, bukaSesi, tutupSesi } = usePrakti();
   const toast = useToast();
   const [sheetVisible, setSheetVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
 
   const hadir = presensiSesi(presensi, sesi.id).length;
-  const total = praktikanList.length;
+  const total = pesertaSesi(sesi).length;
+  const pending = useRef(false);
+  const update = async (operation: () => Promise<void>, onSuccess: () => void, message: string) => {
+    if (pending.current) return;
+    pending.current = true;
+    try {
+      await operation();
+      onSuccess();
+      toast.show(message, 'success');
+    } catch (error) {
+      onSuccess();
+      toast.show(errorMessage(error), 'error');
+    } finally {
+      pending.current = false;
+    }
+  };
   const bukaRekap = () => navigation.navigate('Recap', { sesiId: sesi.id });
 
   if (sesi.status === 'belum_dibuka') {
@@ -38,9 +54,7 @@ export function AsistenSessionPanel({ sesi }: { sesi: Sesi }) {
           sesi={sesi}
           onClose={() => setSheetVisible(false)}
           onConfirm={(topik) => {
-            bukaSesi(sesi.id, topik);
-            setSheetVisible(false);
-            toast.show('Sesi dibuka', 'success');
+            void update(() => bukaSesi(sesi.id, topik), () => setSheetVisible(false), 'Sesi dibuka');
           }}
         />
       </View>
@@ -67,7 +81,7 @@ export function AsistenSessionPanel({ sesi }: { sesi: Sesi }) {
           <Text style={styles.counter}>
             {hadir}/{total} hadir
           </Text>
-          <Text style={styles.percent}>{Math.round((hadir / total) * 100)}%</Text>
+          <Text style={styles.percent}>{total ? Math.round((hadir / total) * 100) : 0}%</Text>
         </View>
         <ProgressBar value={total === 0 ? 0 : hadir / total} />
         <View style={styles.actions}>
@@ -87,9 +101,7 @@ export function AsistenSessionPanel({ sesi }: { sesi: Sesi }) {
           tone="danger"
           onCancel={() => setConfirmVisible(false)}
           onConfirm={() => {
-            tutupSesi(sesi.id);
-            setConfirmVisible(false);
-            toast.show('Sesi ditutup', 'success');
+            void update(() => tutupSesi(sesi.id), () => setConfirmVisible(false), 'Sesi ditutup');
           }}
         />
       </View>

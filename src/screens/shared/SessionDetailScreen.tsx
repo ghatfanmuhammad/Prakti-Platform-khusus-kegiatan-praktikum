@@ -9,6 +9,7 @@ import { StatusPill } from '../../components/StatusPill';
 import { usePrakti } from '../../context/PraktiContext';
 import { AsistenSessionPanel } from '../../features/asisten/AsistenSessionPanel';
 import { PraktikanSessionPanel } from '../../features/praktikan/PraktikanSessionPanel';
+import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
 import type { AppStackParamList } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme';
 import { formatTanggal } from '../../utils/date';
@@ -17,14 +18,18 @@ import { cariSesi } from '../../utils/selectors';
 type Props = NativeStackScreenProps<AppStackParamList, 'SessionDetail'>;
 
 export function SessionDetailScreen({ navigation, route }: Props) {
-  const { currentUser, sesi: daftar, asistenList } = usePrakti();
+  const { currentUser, sesi: daftar, asistenList, practicum, retryPracticum } = usePrakti();
   const sesi = cariSesi(daftar, route.params.sesiId);
 
   if (!sesi || !currentUser) {
     return (
       <View style={styles.root}>
         <AppHeader subtitle="Detail Sesi" onBack={navigation.goBack} />
-        <EmptyState icon="alert-circle-outline" title="Sesi tidak ditemukan" />
+        {practicum && (practicum.loading || practicum.error) ? (
+          <PracticumLoading error={practicum.error} onRetry={retryPracticum} />
+        ) : (
+          <EmptyState icon="alert-circle-outline" title="Sesi tidak ditemukan" />
+        )}
       </View>
     );
   }
@@ -50,6 +55,8 @@ export function SessionDetailScreen({ navigation, route }: Props) {
             <InfoRow icon="time-outline" text={`${sesi.mulai} - ${sesi.selesai}`} />
             <InfoRow icon="location-outline" text={sesi.ruang} />
             {asisten ? <InfoRow icon="person-outline" text={`Asisten: ${asisten.nama}`} /> : null}
+            {sesi.modul ? <InfoRow icon="book-outline" text={`Modul: ${sesi.modul}`} /> : null}
+            {sesi.keterangan ? <Text style={styles.readonly}>{sesi.keterangan}</Text> : null}
             {sesi.topik ? <InfoRow icon="book-outline" text={`Topik: ${sesi.topik}`} /> : null}
           </View>
         </Card>

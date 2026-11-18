@@ -14,6 +14,7 @@ import { ProfileCard } from '../../components/ProfileCard';
 import { StatusPill } from '../../components/StatusPill';
 import { useCurrentAsisten, usePrakti } from '../../context/PraktiContext';
 import { AsistenSessionPanel } from '../../features/asisten/AsistenSessionPanel';
+import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
 import type { AppStackParamList, TabParamList } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme';
 import { formatTanggalRelatif } from '../../utils/date';
@@ -26,7 +27,7 @@ type Props = CompositeScreenProps<
 
 export function AsistenHomeScreen({ navigation }: Props) {
   const asisten = useCurrentAsisten();
-  const { sesi } = usePrakti();
+  const { sesi, practicum, retryPracticum } = usePrakti();
   if (!asisten) return null;
 
   const milik = sesiMilikAsisten(sesi, asisten.id);
@@ -48,7 +49,9 @@ export function AsistenHomeScreen({ navigation }: Props) {
         />
 
         <Text style={styles.section}>Sesi Berjalan</Text>
-        {utama ? (
+        {practicum && (practicum.loading || practicum.error) ? (
+          <PracticumLoading error={practicum.error} onRetry={retryPracticum} />
+        ) : utama ? (
           <Card>
             <View style={styles.titleRow}>
               <View style={styles.titleText}>

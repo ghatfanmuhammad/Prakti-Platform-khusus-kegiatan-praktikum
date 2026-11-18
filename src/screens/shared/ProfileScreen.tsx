@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { AppHeader } from '../../components/AppHeader';
 import { Button } from '../../components/Button';
@@ -7,11 +7,11 @@ import { ConfirmModal } from '../../components/ConfirmModal';
 import { ProfileCard } from '../../components/ProfileCard';
 import { usePrakti } from '../../context/PraktiContext';
 import { logoutUser } from '../../services/authService';
-import { colors, spacing } from '../../theme';
+import { colors, spacing, typography } from '../../theme';
 import { toTitleCase } from '../../utils/text';
 
 export function ProfileScreen() {
-  const { currentUser, keluar } = usePrakti();
+  const { currentUser, keluar, practicum } = usePrakti();
   const [confirm, setConfirm] = useState(false);
 
   if (!currentUser) return null;
@@ -30,6 +30,9 @@ export function ProfileScreen() {
       <AppHeader subtitle="Profil" />
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
         <ProfileCard {...profil} />
+        {practicum && currentUser.role === 'praktikan' ? (
+          <Text selectable style={styles.uid}>UID akun untuk pendaftaran kelas: {currentUser.praktikan.id}</Text>
+        ) : null}
         <Button label="Keluar" variant="outline" icon="log-out-outline" onPress={() => setConfirm(true)} />
       </ScrollView>
       <ConfirmModal
@@ -55,5 +58,6 @@ export function ProfileScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  uid: { ...typography.caption, color: colors.textSecondary },
   content: { padding: spacing.lg, gap: spacing.lg },
 });

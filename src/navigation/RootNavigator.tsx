@@ -5,6 +5,7 @@ import { usePrakti } from '../context/PraktiContext';
 import { AuthScreen } from '../screens/auth/AuthScreen';
 import { RoleSelectScreen } from '../screens/RoleSelectScreen';
 import { getUserProfile, subscribeAuth, toCurrentUser } from '../services/authService';
+import { auth } from '../services/firebase';
 import { colors } from '../theme';
 import { AsistenNavigator } from './AsistenNavigator';
 import { PraktikanNavigator } from './PraktikanNavigator';
@@ -22,19 +23,23 @@ export function RootNavigator() {
 
   // Pulihkan sesi login Firebase (tersimpan di AsyncStorage) saat aplikasi dibuka ulang (SRS-007)
   useEffect(() => {
+    let active = true;
     const unsubscribe = subscribeAuth(async (user) => {
       if (user) {
         try {
           const profile = await getUserProfile(user.uid);
           // Profil bisa belum ada saat registrasi masih berjalan; AuthScreen yang akan memanggil masuk()
-          if (profile) masuk(toCurrentUser(profile));
+          if (active && profile && auth.currentUser?.uid === user.uid) masuk(toCurrentUser(profile));
         } catch (err) {
           console.warn('Gagal memulihkan sesi login:', err);
         }
       }
-      setAuthReady(true);
+      if (active) setAuthReady(true);
     });
-    return unsubscribe;
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [masuk]);
 
   if (!currentUser) {
