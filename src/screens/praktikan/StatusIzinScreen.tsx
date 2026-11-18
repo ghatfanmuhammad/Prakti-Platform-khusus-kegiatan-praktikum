@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '../../components/AppHeader';
+import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { EmptyState } from '../../components/EmptyState';
 import { IzinStatusBadge } from '../../components/IzinStatusBadge';
@@ -84,6 +85,15 @@ export function StatusIzinScreen({ navigation }: Props) {
         </View>
       ) : null}
 
+      {/* SRS-010: pintu masuk form pengajuan izin */}
+      <View style={styles.actions}>
+        <Button
+          label="Ajukan Izin"
+          icon="add-circle-outline"
+          onPress={() => navigation.navigate('AjukanIzin')}
+        />
+      </View>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.navy} />
@@ -146,6 +156,7 @@ export function StatusIzinScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  actions: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   list: { padding: spacing.md, paddingBottom: spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   muted: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs },
