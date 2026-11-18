@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BottomSheet } from '../../components/BottomSheet';
@@ -14,6 +14,7 @@ import { PANJANG_KODE } from '../../utils/code';
 import { pesanGagalPresensi } from '../../utils/attendanceRules';
 import { formatJamDetik } from '../../utils/date';
 import { bacaIsiQr } from '../../utils/qr';
+import { errorMessage } from '../data-praktikum/errors';
 import { QrScanner } from './QrScanner';
 
 type Metode = 'qr' | 'kode';
@@ -36,6 +37,8 @@ export function CheckInSheet({ visible, sesi, onClose }: Props) {
   const [kode, setKode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [waktu, setWaktu] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   const [metode, setMetode] = useState<Metode>('qr');
 
   useEffect(() => {
@@ -49,14 +52,27 @@ export function CheckInSheet({ visible, sesi, onClose }: Props) {
 
   if (!sesi || !praktikan) return null;
 
-  const kirim = (kodeMasuk: string = kode) => {
-    const hasil = catatPresensi(sesi.id, praktikan.id, kodeMasuk);
-    if (hasil.ok) {
-      setError(null);
-      setWaktu(hasil.presensi.waktuHadir);
-      toast.show('Presensi berhasil', 'success');
-    } else {
-      setError(pesanGagalPresensi(hasil));
+  const kirim = async (kodeMasuk: string = kode) => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    try {
+      const hasil = await catatPresensi(sesi.id, praktikan.id, kodeMasuk);
+      if (hasil.ok) {
+        setError(null);
+        setWaktu(hasil.presensi.waktuHadir);
+        toast.show('Presensi berhasil', 'success');
+      } else {
+        setError(pesanGagalPresensi(hasil));
+      }
+    } catch (err) {
+      const firestoreCode = (err as { code?: string })?.code;
+      setError(firestoreCode === 'permission-denied'
+        ? 'Kode tidak cocok atau akses sesi sudah berubah.'
+        : errorMessage(err));
+    } finally {
+      pending.current = false;
+      setBusy(false);
     }
   };
 
@@ -70,11 +86,11 @@ export function CheckInSheet({ visible, sesi, onClose }: Props) {
       setError('QR ini untuk sesi lain');
       return;
     }
-    kirim(isi.kode);
+    void kirim(isi.kode);
   };
 
   return (
-    <BottomSheet visible={visible} title="Presensi praktikum" onClose={onClose}>
+    <BottomSheet visible={visible} title="Presensi praktikum" onClose={() => { if (!busy) onClose(); }}>
       {waktu ? (
         <View style={styles.center}>
           <Ionicons name="checkmark-circle" size={64} color={colors.success} />
@@ -125,10 +141,10 @@ export function CheckInSheet({ visible, sesi, onClose }: Props) {
               </View>
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <Button
-                label="Kirim Presensi"
+                label={busy ? 'Mencatat…' : 'Kirim Presensi'}
                 icon="checkmark-circle-outline"
-                disabled={kode.length < PANJANG_KODE}
-                onPress={() => kirim()}
+                disabled={busy || kode.length < PANJANG_KODE}
+                onPress={() => void kirim()}
                 style={styles.fullButton}
               />
             </>

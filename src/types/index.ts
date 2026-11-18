@@ -20,6 +20,10 @@ export type CurrentUser =
 
 export interface Sesi {
   id: string;
+  classId?: string;
+  sessionId?: string;
+  modul?: string;
+  keterangan?: string;
   praktikum: string;
   kelas: string;
   /** Format YYYY-MM-DD. */

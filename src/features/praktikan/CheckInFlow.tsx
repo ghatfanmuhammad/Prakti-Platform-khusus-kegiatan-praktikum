@@ -32,7 +32,7 @@ const JEDA_MODAL_MS = Platform.OS === 'ios' ? 400 : 0;
 
 export function CheckInFlowProvider({ children }: { children: ReactNode }) {
   const praktikan = useCurrentPraktikan();
-  const { sesi, presensi } = usePrakti();
+  const { sesi, presensi, practicum } = usePrakti();
   const toast = useToast();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [sheetSesiId, setSheetSesiId] = useState<string | null>(null);
@@ -69,6 +69,10 @@ export function CheckInFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const mulai = useCallback(() => {
+    if (practicum?.loading || practicum?.error) {
+      toast.show(practicum.error ?? 'Memuat data praktikum…', practicum.error ? 'error' : 'info');
+      return;
+    }
     const terbuka = sesi.filter((s) => s.status === 'dibuka');
     if (terbuka.length === 0) {
       toast.show('Belum ada sesi yang dibuka', 'error');
@@ -79,7 +83,7 @@ export function CheckInFlowProvider({ children }: { children: ReactNode }) {
     } else {
       setPickerVisible(true);
     }
-  }, [sesi, kandidat, toast]);
+  }, [sesi, kandidat, toast, practicum]);
 
   const pilihDariDaftar = (dipilih: Sesi) => {
     setPickerVisible(false);

@@ -21,7 +21,7 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Recap'>;
 
 export function RecapScreen({ navigation, route }: Props) {
   const asisten = useCurrentAsisten();
-  const { sesi, presensi, praktikanList } = usePrakti();
+  const { sesi, presensi, pesertaSesi } = usePrakti();
   const [tab, setTab] = useState<Tab>('hadir');
   const [pilihan, setPilihan] = useState<string | undefined>(route.params?.sesiId);
 
@@ -43,6 +43,7 @@ export function RecapScreen({ navigation, route }: Props) {
     );
   }
 
+  const praktikanList = pesertaSesi(aktif);
   const rekap = rekapSesi(presensi, aktif.id, praktikanList);
   const total = praktikanList.length;
   const rows = tab === 'hadir' ? rekap.hadir.map((h) => ({ key: h.praktikan.id, nama: h.praktikan.nama, nim: h.praktikan.nim, waktu: h.presensi.waktuHadir })) : rekap.belumHadir.map((p) => ({ key: p.id, nama: p.nama, nim: p.nim, waktu: null as string | null }));
