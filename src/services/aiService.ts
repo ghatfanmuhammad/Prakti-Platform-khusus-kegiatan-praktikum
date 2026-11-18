@@ -1,19 +1,29 @@
 /**
- * Integrasi API model AI pengajar untuk klasifikasi alasan izin (Sprint 2 kebutuhan 6).
+ * Integrasi API model AI untuk klasifikasi alasan izin (Sprint 2 kebutuhan 6).
  *
  * Hasil AI hanya INFORMASI PENDUKUNG bagi asisten. Hasil ini tidak pernah dipakai
  * untuk menerima atau menolak izin secara otomatis.
  *
- * Konfigurasi di file `.env.local` (lihat `.env.example`):
- *   EXPO_PUBLIC_AI_API_URL  = endpoint model
+ * Konfigurasi di file `.env.local`:
+ *   EXPO_PUBLIC_AI_API_URL  = endpoint model, atau "mock" untuk mode uji coba
  *   EXPO_PUBLIC_AI_API_KEY  = token (opsional, dikirim sebagai Bearer)
+ *
+ * Bawaan proyek: Hugging Face Inference (zero-shot classification), mis.
+ *   https://router.huggingface.co/hf-inference/models/MoritzLaurer/mDeBERTa-v3-base-mnli-xnli
+ * Token Hugging Face (hf_...) perlu izin "Make calls to Inference Providers".
  */
 
 const AI_API_URL = process.env.EXPO_PUBLIC_AI_API_URL ?? '';
 const AI_API_KEY = process.env.EXPO_PUBLIC_AI_API_KEY ?? '';
 
-/** Batas waktu menunggu respons AI sebelum dianggap gagal. */
-const TIMEOUT_MS = 10_000;
+/** Endpoint Hugging Face memakai format zero-shot (teks + daftar kategori). */
+const PAKAI_HUGGING_FACE = /(^|\.)huggingface\.co\//i.test(AI_API_URL.replace(/^https?:\/\//i, ''));
+
+/** Batas waktu menunggu respons AI sebelum dianggap gagal (model HF bisa lambat saat "bangun"). */
+const TIMEOUT_MS = 15_000;
+
+/** Kategori alasan izin yang dipilih model (dipakai juga oleh mode uji coba). */
+export const KATEGORI_IZIN = ['Sakit', 'Keluarga', 'Akademik', 'Transportasi', 'Lainnya'] as const;
 
 export interface HasilKlasifikasi {
   kategori: string;
@@ -54,9 +64,21 @@ export function formatAiError(err: unknown): string {
 }
 
 /**
- * Body request ke API. SESUAIKAN dengan format dari pengajar bila berbeda.
+ * Body request ke API.
+ * - Hugging Face zero-shot: { inputs, parameters: { candidate_labels, ... } }
+ * - Endpoint lain: { text }
  */
-function buatBodyRequest(alasan: string): unknown {
+export function buatBodyRequest(alasan: string, huggingFace = PAKAI_HUGGING_FACE): unknown {
+  if (huggingFace) {
+    return {
+      inputs: alasan,
+      parameters: {
+        candidate_labels: [...KATEGORI_IZIN],
+        hypothesis_template: 'Alasan izin ini termasuk kategori {}.',
+        multi_label: false,
+      },
+    };
+  }
   return { text: alasan };
 }
 
@@ -67,12 +89,17 @@ function buatBodyRequest(alasan: string): unknown {
  *   { "data": { "prediction": "Sakit", "probability": 0.9 } }
  *   [{ "label": "Sakit", "score": 0.9 }, { "label": "Lainnya", "score": 0.1 }]   (gaya Hugging Face)
  *   [[{ "label": "Sakit", "score": 0.9 }]]
- * SESUAIKAN bila format API pengajar berbeda.
+ *   { "sequence": "...", "labels": ["Sakit", ...], "scores": [0.9, ...] }  (zero-shot HF lama)
  */
 export function bacaHasilKlasifikasi(json: unknown): HasilKlasifikasi {
   let x: any = json;
   if (x && !Array.isArray(x) && typeof x === 'object') {
     x = x.data ?? x.result ?? x.hasil ?? x.output ?? x;
+  }
+  // Bentuk { labels: [...], scores: [...] } → ubah menjadi daftar kandidat
+  if (x && !Array.isArray(x) && Array.isArray(x.labels)) {
+    const scores: unknown[] = Array.isArray(x.scores) ? x.scores : [];
+    x = x.labels.map((label: unknown, i: number) => ({ label, score: scores[i] }));
   }
   while (Array.isArray(x) && Array.isArray(x[0])) x = x[0];
   if (Array.isArray(x)) {
@@ -127,7 +154,7 @@ async function klasifikasiMock(alasan: string): Promise<HasilKlasifikasi> {
     const cocok = kata.filter((k) => teks.includes(k)).length;
     if (cocok > 0) return { kategori, confidence: Math.min(0.95, 0.6 + cocok * 0.15) };
   }
-  return { kategori: 'Lainnya', confidence: 0.4 };
+  return { kategori: KATEGORI_IZIN[KATEGORI_IZIN.length - 1], confidence: 0.4 };
 }
 
 /**
