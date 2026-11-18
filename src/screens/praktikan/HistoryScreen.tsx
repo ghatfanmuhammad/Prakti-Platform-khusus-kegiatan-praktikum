@@ -5,6 +5,8 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { AppHeader } from '../../components/AppHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
+import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
+import { useStatusPresensi } from '../../features/presensi/useStatusPresensi';
 import type { AppStackParamList } from '../../navigation/types';
 import { cardShadow, colors, radius, spacing, typography } from '../../theme';
 import { formatJamDetik, formatTanggal } from '../../utils/date';
@@ -15,7 +17,18 @@ type Props = NativeStackScreenProps<AppStackParamList, 'History'>;
 export function HistoryScreen({ navigation }: Props) {
   const praktikan = useCurrentPraktikan();
   const { sesi, presensi } = usePrakti();
+  const status = useStatusPresensi();
   if (!praktikan) return null;
+
+  // SRS-009: jangan tampilkan "Belum ada riwayat" sebelum data presensi benar-benar termuat.
+  if (status.loading || status.error) {
+    return (
+      <View style={styles.root}>
+        <AppHeader subtitle="Riwayat Kehadiran" onBack={navigation.goBack} />
+        <PracticumLoading error={status.error} onRetry={status.retry} />
+      </View>
+    );
+  }
 
   const data = riwayatPraktikan(presensi, sesi, praktikan.id);
 

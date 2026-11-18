@@ -7,6 +7,8 @@ import { colors, radius, spacing, typography } from '../../theme';
 import type { Sesi } from '../../types';
 import { formatJam } from '../../utils/date';
 import { cariPresensi } from '../../utils/selectors';
+import { PracticumLoading } from '../data-praktikum/PracticumLoading';
+import { useStatusPresensi } from '../presensi/useStatusPresensi';
 import { useCheckInFlow } from './CheckInFlow';
 
 /** Tombol presensi atau keterangan status untuk satu sesi, dari sisi praktikan. */
@@ -14,6 +16,13 @@ export function PraktikanSessionPanel({ sesi }: { sesi: Sesi }) {
   const praktikan = useCurrentPraktikan();
   const { presensi } = usePrakti();
   const { mulaiUntuk } = useCheckInFlow();
+  const status = useStatusPresensi();
+
+  // SRS-009: tombol presensi baru boleh muncul setelah catatan presensi termuat,
+  // agar praktikan yang sudah hadir tidak sempat melihat tombol "Presensi Sekarang".
+  if (status.loading || status.error) {
+    return <PracticumLoading error={status.error} onRetry={status.retry} />;
+  }
 
   const catatan = praktikan ? cariPresensi(presensi, sesi.id, praktikan.id) : undefined;
 
