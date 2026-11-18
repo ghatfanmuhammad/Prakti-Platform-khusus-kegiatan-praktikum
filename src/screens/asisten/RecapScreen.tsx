@@ -9,6 +9,8 @@ import { ProgressBar } from '../../components/ProgressBar';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { StatusPill } from '../../components/StatusPill';
 import { useCurrentAsisten, usePrakti } from '../../context/PraktiContext';
+import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
+import { useStatusPresensi } from '../../features/presensi/useStatusPresensi';
 import type { AppStackParamList } from '../../navigation/types';
 import { colors, radius, spacing, typography } from '../../theme';
 import { formatJamDetik } from '../../utils/date';
@@ -24,8 +26,19 @@ export function RecapScreen({ navigation, route }: Props) {
   const { sesi, presensi, pesertaSesi } = usePrakti();
   const [tab, setTab] = useState<Tab>('hadir');
   const [pilihan, setPilihan] = useState<string | undefined>(route.params?.sesiId);
+  const status = useStatusPresensi();
 
   if (!asisten) return null;
+
+  // SRS-009: jangan tampilkan "Belum ada rekap" atau "0 hadir" sebelum data benar-benar termuat.
+  if (status.loading || status.error) {
+    return (
+      <View style={styles.root}>
+        <AppHeader subtitle="Rekap Kehadiran" onBack={navigation.goBack} />
+        <PracticumLoading error={status.error} onRetry={status.retry} />
+      </View>
+    );
+  }
 
   const milik = sesiMilikAsisten(sesi, asisten.id);
   const aktif = (pilihan ? cariSesi(milik, pilihan) : undefined) ?? sesiUntukRekap(milik);
