@@ -21,6 +21,7 @@ import { navigationRef } from '../../navigation/navigationRef';
 import { hapusTokenPerangkat, simpanTokenPerangkat } from '../../services/notifikasiService';
 import type { DataNotifikasi } from './pesan';
 import { aturTampilanNotifikasi, daftarkanPerangkat, type StatusPush } from './registrasiPush';
+import { useResponNotifikasi } from './useResponNotifikasi';
 
 aturTampilanNotifikasi();
 
@@ -107,7 +108,7 @@ export function NotifikasiProvider({ children }: { children: ReactNode }) {
 
 /** Mengetuk notifikasi membuka layar terkait (juga saat aplikasi dibuka dari notifikasi). */
 function useBukaLayarDariNotifikasi(uid: string | null) {
-  const respons = Notifications.useLastNotificationResponse();
+  const respons = useResponNotifikasi();
   const ditangani = useRef<string | null>(null);
   const [percobaan, setPercobaan] = useState(0);
 
