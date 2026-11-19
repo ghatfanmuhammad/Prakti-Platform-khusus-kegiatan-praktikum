@@ -163,11 +163,12 @@ service cloud.firestore {
 
     function jadwalValid(d) {
       return d.keys().hasOnly([
-          'hari', 'mulai', 'selesai', 'ruangan', 'sessionCount', 'createdAt', 'updatedAt', 'lastSessionId'])
+          'hari', 'mulai', 'selesai', 'ruangan', 'labId', 'sessionCount', 'createdAt', 'updatedAt', 'lastSessionId'])
         && d.hari in ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
         && d.mulai is string && d.mulai.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
         && d.selesai is string && d.selesai.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
         && menit(d.mulai) < menit(d.selesai) && teksValid(d.ruangan, 120)
+        && (!('labId' in d) || d.labId == null || idValid(d.labId))
         && jumlahValid(d.sessionCount) && waktuTulisValid(d);
     }
 
@@ -181,7 +182,7 @@ service cloud.firestore {
       let d = request.resource.data;
       let before = resource.data;
       let diff = d.diff(before).affectedKeys();
-      return (diff.hasOnly(['hari', 'mulai', 'selesai', 'ruangan', 'updatedAt'])
+      return (diff.hasOnly(['hari', 'mulai', 'selesai', 'ruangan', 'labId', 'updatedAt'])
           && (before.sessionCount == 0 || !diff.hasAny(['hari', 'mulai', 'selesai'])))
         || (diff.hasOnly(['sessionCount', 'lastSessionId', 'updatedAt'])
           && idValid(d.lastSessionId)
@@ -318,6 +319,12 @@ service cloud.firestore {
         && id.split('~').size() == 3 && id.split('~')[2] == request.auth.uid);
       allow list: if isAsisten() || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
       allow create: if isPraktikan() && catatanHadirValid(request.resource.data, id);
+    }
+
+    // ---------- laboratories/{labId}: lokasi laboratorium (SRS-014) ----------
+    match /laboratories/{labId} {
+      allow read: if isAsisten() || isPraktikan();
+      allow write: if isAsisten();
     }
 
     // ---------- izin/{izinId}: pengajuan izin (SRS-010) & pemeriksaan (SRS-011) ----------
