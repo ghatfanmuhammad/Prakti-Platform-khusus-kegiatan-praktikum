@@ -5,6 +5,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import {
   collection,
   connectFirestoreEmulator,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -289,4 +290,27 @@ test('QR check-in validates the code, membership, and one check-in per session',
   await close.commit();
   await denied(updateDoc(ref, { status: 'dibuka', updatedAt: serverTimestamp() }));
   await denied(updateDoc(ref, { modul: 'Changed', updatedAt: serverTimestamp() }));
+});
+
+test('push tokens are owned by their user and readable by assistants (SRS-017)', options, async () => {
+  const token = (uid, value = 'ExponentPushToken[abc123]') => ({
+    uid,
+    token: value,
+    platform: 'android',
+    updatedAt: serverTimestamp(),
+  });
+  const own = doc(student, 'pushTokens/student');
+  await denied(setDoc(doc(student, 'pushTokens/other'), token('other')));
+  await denied(setDoc(own, token('student', 'bukan-token')));
+  await denied(setDoc(own, { ...token('student'), extra: true }));
+  await denied(setDoc(own, { ...token('student'), platform: 'web' }));
+  await setDoc(own, token('student'));
+  await setDoc(own, token('student', 'ExpoPushToken[xyz789]'));
+
+  assert.equal((await getDoc(doc(assistant, 'pushTokens/student'))).data().token, 'ExpoPushToken[xyz789]');
+  await denied(getDoc(doc(client('other'), 'pushTokens/student')));
+  await denied(getDocs(collection(assistant, 'pushTokens')));
+  await denied(setDoc(doc(assistant, 'pushTokens/student'), token('student')));
+  await denied(deleteDoc(doc(assistant, 'pushTokens/student')));
+  await deleteDoc(own);
 });

@@ -6,12 +6,15 @@ import { Button } from '../../components/Button';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ProfileCard } from '../../components/ProfileCard';
 import { usePrakti } from '../../context/PraktiContext';
+import { useNotifikasi } from '../../features/notifikasi/NotifikasiContext';
+import { StatusNotifikasiCard } from '../../features/notifikasi/StatusNotifikasiCard';
 import { logoutUser } from '../../services/authService';
 import { colors, spacing, typography } from '../../theme';
 import { toTitleCase } from '../../utils/text';
 
 export function ProfileScreen() {
   const { currentUser, keluar, practicum } = usePrakti();
+  const { lepasPerangkat } = useNotifikasi();
   const [confirm, setConfirm] = useState(false);
 
   if (!currentUser) return null;
@@ -33,6 +36,7 @@ export function ProfileScreen() {
         {practicum && currentUser.role === 'praktikan' ? (
           <Text selectable style={styles.uid}>UID akun untuk pendaftaran kelas: {currentUser.praktikan.id}</Text>
         ) : null}
+        <StatusNotifikasiCard />
         <Button label="Keluar" variant="outline" icon="log-out-outline" onPress={() => setConfirm(true)} />
       </ScrollView>
       <ConfirmModal
@@ -43,6 +47,8 @@ export function ProfileScreen() {
         onCancel={() => setConfirm(false)}
         onConfirm={async () => {
           setConfirm(false);
+          // Lepas token push selagi masih login, agar perangkat tidak menerima notifikasi akun ini lagi
+          await lepasPerangkat();
           try {
             // Akhiri sesi Firebase Auth (SRS-007); aman juga untuk mode demo yang tidak login Firebase
             await logoutUser();

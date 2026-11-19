@@ -10,19 +10,31 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.prakti.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-status-bar",
+      [
+        "expo-notifications",
+        {
+          "color": "#0B1A5C",
+          "defaultChannel": "default"
+        }
+      ],
       [
         "expo-camera",
         {
@@ -31,6 +43,12 @@
           "recordAudioAndroid": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "85652659-0019-48aa-bd88-b1dedb34f7ba"
+      }
+    },
+    "owner": "ghatfan"
   }
 }

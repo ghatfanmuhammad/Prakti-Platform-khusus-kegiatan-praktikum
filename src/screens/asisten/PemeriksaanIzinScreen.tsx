@@ -16,6 +16,7 @@ import { Card } from '../../components/Card';
 import { EmptyState } from '../../components/EmptyState';
 import { HasilAIBox } from '../../components/HasilAIBox';
 import { IzinStatusBadge } from '../../components/IzinStatusBadge';
+import { useToast } from '../../components/Toast';
 import { useCurrentAsisten } from '../../context/PraktiContext';
 import {
   formatIzinError,
@@ -24,10 +25,13 @@ import {
   subscribeDaftarIzin,
   type PengajuanIzin,
 } from '../../services/izinService';
+import { kirimKePengguna } from '../../services/notifikasiService';
+import { pesanKeputusanIzin, ringkasHasil } from '../../features/notifikasi/pesan';
 import { cardShadow, colors, radius, spacing, typography } from '../../theme';
 
 export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
   const asisten = useCurrentAsisten();
+  const toast = useToast();
   const [daftarIzin, setDaftarIzin] = useState<PengajuanIzin[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorKoneksi, setErrorKoneksi] = useState<string | null>(null);
@@ -95,6 +99,21 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
     try {
       await periksaIzin(selectedIzin.id, actionType, { uid: asisten.id, nama: asisten.nama });
       tutupKonfirmasi();
+      // [SRS-017] Keputusan sudah tersimpan; beri tahu pemilik pengajuan
+      const hasil = await kirimKePengguna(
+        [selectedIzin.praktikanId],
+        pesanKeputusanIzin({
+          id: selectedIzin.id,
+          sesiNama: selectedIzin.sesiNama,
+          status: actionType,
+          reviewedBy: asisten.nama,
+        }),
+      );
+      const terkirim = !hasil.galat && hasil.terkirim === 1;
+      toast.show(
+        `Izin ${actionType.toLowerCase()}. ${ringkasHasil(hasil)}`,
+        terkirim ? 'success' : 'info',
+      );
     } catch (err) {
       tutupKonfirmasi();
       Alert.alert('Gagal memperbarui status izin', formatIzinError(err));

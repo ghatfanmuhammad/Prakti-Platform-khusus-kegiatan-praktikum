@@ -29,6 +29,9 @@ import {
   type Schedule,
 } from './models';
 import { deleteRecord, saveRecord } from './repository';
+import { validateForm } from './validation';
+import { jadwalBerubah, ringkasHasil, sesiDijadwalUlang } from '../notifikasi/pesan';
+import { kirimJadwalBerubah, kirimSesiDijadwalUlang } from '../../services/notifikasiService';
 
 const EMPTY: never[] = [];
 
@@ -43,6 +46,33 @@ type Editor = {
   record: PracticumRecord | null;
   classId: string | null;
 };
+/**
+ * [SRS-017] Setelah jadwal atau sesi yang sudah ada berhasil diubah, beri tahu praktikan kelas.
+ * Mengembalikan ringkasan pengiriman untuk ditampilkan ke asisten.
+ */
+async function kirimNotifikasiPerubahan(
+  editor: Editor,
+  input: FormValues,
+  schedules: Schedule[],
+): Promise<string | undefined> {
+  if (!editor.record || !editor.classId) return;
+  const values = validateForm(editor.kind, input);
+  if (editor.kind === 'jadwal') {
+    const jadwal = { hari: values.hari, mulai: values.mulai, selesai: values.selesai, ruangan: values.ruangan };
+    if (!jadwalBerubah(editor.record as Schedule, jadwal)) return;
+    return ringkasHasil(await kirimJadwalBerubah(editor.classId, jadwal));
+  }
+  if (editor.kind === 'sesi') {
+    const sesi = { tanggal: values.tanggal, scheduleId: values.scheduleId };
+    if (!sesiDijadwalUlang(editor.record as PracticumSession, sesi)) return;
+    const jadwal = schedules.find((item) => item.id === values.scheduleId);
+    if (!jadwal) return;
+    return ringkasHasil(
+      await kirimSesiDijadwalUlang(editor.classId, { modul: values.modul, tanggal: values.tanggal }, jadwal),
+    );
+  }
+}
+
 type Confirmation = {
   title: string;
   message: string;
@@ -161,10 +191,10 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
     setMutationError(null);
     setSuccess(null);
     try {
-      await operation();
+      const catatan = await operation();
       setEditor(null);
       setConfirmation(null);
-      setSuccess(message);
+      setSuccess(typeof catatan === 'string' ? `${message} ${catatan}` : message);
     } catch (error) {
       setMutationError(errorMessage(error));
     } finally {
@@ -418,6 +448,8 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
                 values,
               );
               if (editor.kind === 'kelas' && !editor.record) setChosenClassId(id);
+              // Dikirim setelah saveRecord selesai, yaitu setelah transaksi Firestore berhasil
+              return kirimNotifikasiPerubahan(editor, values, schedules);
             }, 'Data berhasil disimpan.');
           }}
         />
