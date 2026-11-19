@@ -44,6 +44,7 @@ export function validateForm(kind: Kind, values: FormValues): FormValues {
         mulai,
         selesai,
         ruangan: required(values, 'ruangan', 'Ruangan', 120),
+        ...(values.labId ? { labId: required(values, 'labId', 'Laboratorium', 40) } : {}),
       };
     }
     case 'sesi': {

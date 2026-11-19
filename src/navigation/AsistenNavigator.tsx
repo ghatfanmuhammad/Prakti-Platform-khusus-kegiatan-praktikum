@@ -3,8 +3,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { BottomBar, type BottomBarItem } from '../components/BottomBar';
 import { AsistenHomeScreen } from '../screens/asisten/AsistenHomeScreen';
+import { KelolaLabScreen } from '../screens/asisten/KelolaLabScreen';
 import { PemeriksaanIzinScreen } from '../screens/asisten/PemeriksaanIzinScreen';
 import { RecapScreen } from '../screens/asisten/RecapScreen';
+import { MapsScreen } from '../screens/shared/MapsScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { ScheduleScreen } from '../screens/shared/ScheduleScreen';
 import { SessionDetailScreen } from '../screens/shared/SessionDetailScreen';
@@ -38,6 +40,8 @@ export function AsistenNavigator() {
       <Stack.Screen name="SessionDetail" component={SessionDetailScreen} />
       <Stack.Screen name="Recap" component={RecapScreen} />
       <Stack.Screen name="PemeriksaanIzin" component={PemeriksaanIzinScreen} />
+      <Stack.Screen name="Maps" component={MapsScreen} />
+      <Stack.Screen name="KelolaLab" component={KelolaLabScreen} />
     </Stack.Navigator>
   );
 }

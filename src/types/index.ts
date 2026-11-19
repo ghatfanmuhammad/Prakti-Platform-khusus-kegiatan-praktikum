@@ -32,6 +32,8 @@ export interface Sesi {
   mulai: string;
   selesai: string;
   ruang: string;
+  /** ID laboratorium (koleksi laboratories). Opsional untuk jadwal lama. */
+  labId?: string;
   asistenId: string;
   status: SessionStatus;
   topik: string | null;
