@@ -6,6 +6,7 @@ import { CheckInFlowProvider, useCheckInFlow } from '../features/praktikan/Check
 import { AjukanIzinScreen } from '../screens/praktikan/AjukanIzinScreen';
 import { HistoryScreen } from '../screens/praktikan/HistoryScreen';
 import { PraktikanHomeScreen } from '../screens/praktikan/PraktikanHomeScreen';
+import { PresensiScreen } from '../screens/praktikan/PresensiScreen';
 import { StatusIzinScreen } from '../screens/praktikan/StatusIzinScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { ScheduleScreen } from '../screens/shared/ScheduleScreen';
@@ -40,6 +41,7 @@ export function PraktikanNavigator() {
         <Stack.Screen name="Tabs" component={PraktikanTabs} />
         <Stack.Screen name="Schedule" component={ScheduleScreen} />
         <Stack.Screen name="SessionDetail" component={SessionDetailScreen} />
+        <Stack.Screen name="Presensi" component={PresensiScreen} />
         <Stack.Screen name="History" component={HistoryScreen} />
         <Stack.Screen name="StatusIzin" component={StatusIzinScreen} />
         <Stack.Screen name="AjukanIzin" component={AjukanIzinScreen} />
