@@ -12,6 +12,7 @@ import { DAFTAR_ASISTEN, DAFTAR_PRAKTIKAN } from '../data';
 import { saveAttendance } from '../features/data-praktikum/attendance';
 import { usePracticumData } from '../features/data-praktikum/hooks';
 import { changeSessionStatus } from '../features/data-praktikum/repository';
+import type { LokasiValid } from '../features/presensi/lokasi';
 import type { Asisten, CurrentUser, Praktikan, Presensi, Sesi } from '../types';
 import { evaluateCheckIn, type CheckInResult } from '../utils/attendanceRules';
 import { buatKodeSesi } from '../utils/code';
@@ -31,7 +32,11 @@ interface PraktiContextValue {
   pesertaSesi: (sesi: Sesi) => Praktikan[];
   bukaSesi: (sesiId: string, topik: string | null) => Promise<void>;
   tutupSesi: (sesiId: string) => Promise<void>;
-  catatPresensi: (sesiId: string, praktikanId: string, kode: string) => Promise<CheckInResult>;
+  /**
+   * Menyimpan presensi. `lokasi` wajib berupa hasil pemeriksaan yang berada dalam radius lab (SRS-013),
+   * sehingga presensi tidak bisa tersimpan tanpa validasi lokasi.
+   */
+  catatPresensi: (sesiId: string, praktikanId: string, kode: string, lokasi: LokasiValid) => Promise<CheckInResult>;
 }
 
 const PraktiContext = createContext<PraktiContextValue | null>(null);
@@ -84,7 +89,14 @@ export function PraktiProvider({ children }: { children: ReactNode }) {
     await changeSessionStatus(target.classId, target.sessionId, 'ditutup');
   };
 
-  const catatPresensi = async (sesiId: string, praktikanId: string, kode: string): Promise<CheckInResult> => {
+  const catatPresensi = async (
+    sesiId: string,
+    praktikanId: string,
+    kode: string,
+    lokasi: LokasiValid,
+  ): Promise<CheckInResult> => {
+    // Pengaman terakhir di sisi aplikasi; aturan Firestore untuk lokasi menyusul (lihat SRS-013).
+    if (lokasi.jenis !== 'dalam_radius') throw new Error('Lokasi belum tervalidasi. Periksa lokasi lalu coba lagi.');
     if (!state.demo) {
       const target = cariSesi(sesi, sesiId);
       if (!target) return { ok: false, reason: 'SESI_TIDAK_DITEMUKAN' };

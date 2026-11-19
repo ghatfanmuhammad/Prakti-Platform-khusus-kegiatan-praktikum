@@ -30,6 +30,12 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Izinkan PRAKTI memakai lokasimu untuk memastikan kamu berada di laboratorium saat presensi."
+        }
       ]
     ]
   }

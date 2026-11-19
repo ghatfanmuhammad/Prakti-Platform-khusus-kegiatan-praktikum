@@ -32,6 +32,8 @@ export interface Sesi {
   mulai: string;
   selesai: string;
   ruang: string;
+  /** Laboratorium tempat presensi divalidasi (SRS-013/SRS-014); null bila belum diatur. */
+  labId?: string | null;
   asistenId: string;
   status: SessionStatus;
   topik: string | null;
