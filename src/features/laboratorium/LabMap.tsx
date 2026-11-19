@@ -4,7 +4,7 @@ import MapView, { Circle, Marker } from 'react-native-maps';
 
 import { colors } from '../../theme';
 import type { Koordinat } from '../../utils/geo';
-import type { Laboratorium } from './models';
+import { titikLab, type Laboratorium } from './models';
 
 export interface LabMapProps {
   labs: Laboratorium[];
@@ -21,7 +21,7 @@ export function LabMap({ labs, pengguna, terpilihId, onPilih }: LabMapProps) {
   // Fokuskan peta sekali ke semua titik begitu data pertama tersedia.
   useEffect(() => {
     if (sudahFokus.current || !peta.current) return;
-    const titik: Koordinat[] = [...labs, ...(pengguna ? [pengguna] : [])];
+    const titik: Koordinat[] = [...labs.map(titikLab), ...(pengguna ? [pengguna] : [])];
     if (titik.length === 0) return;
     sudahFokus.current = true;
     peta.current.fitToCoordinates(titik, {
@@ -41,7 +41,7 @@ export function LabMap({ labs, pengguna, terpilihId, onPilih }: LabMapProps) {
       {labs.map((lab) => (
         <Marker
           key={lab.id}
-          coordinate={{ latitude: lab.latitude, longitude: lab.longitude }}
+          coordinate={titikLab(lab)}
           title={lab.nama}
           pinColor={lab.id === terpilihId ? colors.accent : colors.navy}
           onPress={() => onPilih(lab)}
@@ -49,7 +49,7 @@ export function LabMap({ labs, pengguna, terpilihId, onPilih }: LabMapProps) {
       ))}
       {terpilih ? (
         <Circle
-          center={{ latitude: terpilih.latitude, longitude: terpilih.longitude }}
+          center={titikLab(terpilih)}
           radius={terpilih.radiusMeter}
           strokeColor={colors.navy}
           fillColor="rgba(11, 26, 92, 0.12)"

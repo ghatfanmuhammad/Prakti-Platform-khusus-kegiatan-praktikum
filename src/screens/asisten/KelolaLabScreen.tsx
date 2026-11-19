@@ -31,12 +31,12 @@ import { colors, radius, spacing, typography } from '../../theme';
 
 const KOSONG: LabFormValues = {
   nama: '',
-  latitude: '',
-  longitude: '',
+  lat: '',
+  lng: '',
   radiusMeter: String(RADIUS_DEFAULT),
 };
 
-/** Kelola laboratorium: nama, koordinat, dan radius presensi (SRS-014, hanya asisten). */
+/** Kelola laboratorium: nama, koordinat (lat, lng), dan radius presensi (SRS-014, hanya asisten). */
 export function KelolaLabScreen({ navigation }: { navigation: any }) {
   const { data, loading, error, retry } = useLaboratorium();
   const [editor, setEditor] = useState<{ id: string | null; values: LabFormValues } | null>(null);
@@ -55,8 +55,8 @@ export function KelolaLabScreen({ navigation }: { navigation: any }) {
       id: lab.id,
       values: {
         nama: lab.nama,
-        latitude: String(lab.latitude),
-        longitude: String(lab.longitude),
+        lat: String(lab.lat),
+        lng: String(lab.lng),
         radiusMeter: String(lab.radiusMeter),
       },
     });
@@ -69,8 +69,8 @@ export function KelolaLabScreen({ navigation }: { navigation: any }) {
     setPesanForm(null);
     try {
       const { latitude, longitude } = await ambilLokasiSekarang();
-      ubahField('latitude', latitude.toFixed(6));
-      ubahField('longitude', longitude.toFixed(6));
+      ubahField('lat', latitude.toFixed(6));
+      ubahField('lng', longitude.toFixed(6));
     } catch (err) {
       setPesanForm(err instanceof Error ? err.message : 'Gagal mengambil lokasi.');
     } finally {
@@ -135,7 +135,7 @@ export function KelolaLabScreen({ navigation }: { navigation: any }) {
               <Card style={styles.item}>
                 <Text style={styles.nama}>{item.nama}</Text>
                 <Text style={styles.meta}>
-                  {item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}
+                  {item.lat.toFixed(6)}, {item.lng.toFixed(6)}
                 </Text>
                 <Text style={styles.meta}>Radius presensi {item.radiusMeter} m</Text>
                 <View style={styles.aksi}>
@@ -174,8 +174,8 @@ export function KelolaLabScreen({ navigation }: { navigation: any }) {
               <Text style={styles.label}>Latitude</Text>
               <TextInput
                 style={styles.input}
-                value={editor?.values.latitude ?? ''}
-                onChangeText={(v) => ubahField('latitude', v)}
+                value={editor?.values.lat ?? ''}
+                onChangeText={(v) => ubahField('lat', v)}
                 placeholder="-7.050000"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="numbers-and-punctuation"
@@ -185,8 +185,8 @@ export function KelolaLabScreen({ navigation }: { navigation: any }) {
               <Text style={styles.label}>Longitude</Text>
               <TextInput
                 style={styles.input}
-                value={editor?.values.longitude ?? ''}
-                onChangeText={(v) => ubahField('longitude', v)}
+                value={editor?.values.lng ?? ''}
+                onChangeText={(v) => ubahField('lng', v)}
                 placeholder="110.440000"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="numbers-and-punctuation"

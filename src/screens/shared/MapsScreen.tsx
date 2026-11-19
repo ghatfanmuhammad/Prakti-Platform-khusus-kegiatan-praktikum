@@ -10,7 +10,7 @@ import { aktivitasLab } from '../../features/laboratorium/aktivitas';
 import { useLaboratorium } from '../../features/laboratorium/hooks';
 import { LabMap } from '../../features/laboratorium/LabMap';
 import { useLokasiPengguna } from '../../features/laboratorium/lokasi';
-import type { Laboratorium } from '../../features/laboratorium/models';
+import { titikLab, type Laboratorium } from '../../features/laboratorium/models';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { Sesi } from '../../types';
 import { formatTanggalRelatif } from '../../utils/date';
@@ -98,7 +98,7 @@ export function MapsScreen({ navigation }: { navigation: any }) {
             <Text style={styles.labNama}>{terpilih.nama}</Text>
             <Text style={styles.meta}>
               Radius presensi {terpilih.radiusMeter} m
-              {lokasi.koordinat ? ` · Jarak dari Anda ${formatJarak(jarakMeter(lokasi.koordinat, terpilih))}` : ''}
+              {lokasi.koordinat ? ` · Jarak dari Anda ${formatJarak(jarakMeter(lokasi.koordinat, titikLab(terpilih)))}` : ''}
             </Text>
             {aktivitas.berlangsung.length === 0 && !aktivitas.berikutnya ? (
               <Text style={styles.meta}>Belum ada praktikum terjadwal di laboratorium ini.</Text>
@@ -125,7 +125,7 @@ export function MapsScreen({ navigation }: { navigation: any }) {
             <Ionicons name="location-outline" size={18} color={colors.navy} />
             <Text style={styles.labItemNama}>{lab.nama}</Text>
             {lokasi.koordinat ? (
-              <Text style={styles.meta}>{formatJarak(jarakMeter(lokasi.koordinat, lab))}</Text>
+              <Text style={styles.meta}>{formatJarak(jarakMeter(lokasi.koordinat, titikLab(lab)))}</Text>
             ) : null}
           </Pressable>
         ))}
