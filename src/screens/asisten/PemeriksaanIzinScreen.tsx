@@ -67,14 +67,14 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
     setActionType(null);
   };
 
-  // [Sprint 2 #6] Ulangi klasifikasi AI bila sebelumnya gagal (mis. layanan AI tidak merespons)
+  // [Sprint 2 #6] Ulangi analisis sentimen AI bila sebelumnya gagal
   const handleKlasifikasiUlang = async (item: PengajuanIzin) => {
     if (!item.id || reklasifikasiId) return;
     setReklasifikasiId(item.id);
     try {
       const hasil = await klasifikasiUlangIzin(item.id, item.alasan);
       if (hasil.statusAI === 'gagal') {
-        Alert.alert('Klasifikasi AI gagal', hasil.pesanAI ?? 'Coba lagi beberapa saat lagi.');
+        Alert.alert('Analisis AI gagal', hasil.pesanAI ?? 'Coba lagi beberapa saat lagi.');
       }
     } catch (err) {
       Alert.alert('Gagal menyimpan hasil AI', formatIzinError(err));

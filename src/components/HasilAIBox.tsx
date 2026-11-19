@@ -11,8 +11,13 @@ interface Props {
   memproses?: boolean;
 }
 
+/** "positif" → "Positif" untuk ditampilkan. */
+function kapital(teks: string): string {
+  return teks.charAt(0).toUpperCase() + teks.slice(1);
+}
+
 /**
- * Menampilkan prediksi kategori alasan izin dari model AI.
+ * Menampilkan prediksi sentimen alasan izin dari model AI.
  * Selalu diberi label sebagai informasi pendukung, bukan keputusan.
  */
 export function HasilAIBox({ izin, onKlasifikasiUlang, memproses = false }: Props) {
@@ -24,13 +29,13 @@ export function HasilAIBox({ izin, onKlasifikasiUlang, memproses = false }: Prop
     <View style={styles.box}>
       <View style={styles.header}>
         <Ionicons name="sparkles-outline" size={16} color={colors.navy} />
-        <Text style={styles.judul}>Prediksi Kategori (AI)</Text>
+        <Text style={styles.judul}>Prediksi Sentimen (AI)</Text>
       </View>
 
       {berhasil ? (
         <View style={styles.hasilRow}>
           <View style={styles.chip}>
-            <Text style={styles.chipText}>{izin.kategoriAI}</Text>
+            <Text style={styles.chipText}>{kapital(izin.kategoriAI!)}</Text>
           </View>
           {persen ? <Text style={styles.confidence}>keyakinan {persen}</Text> : null}
         </View>
@@ -38,7 +43,7 @@ export function HasilAIBox({ izin, onKlasifikasiUlang, memproses = false }: Prop
         <Text style={styles.gagal}>
           {izin.statusAI === 'gagal'
             ? `Tidak tersedia: ${izin.pesanAI ?? 'klasifikasi AI gagal.'}`
-            : 'Belum diklasifikasi.'}
+            : 'Belum dianalisis.'}
         </Text>
       )}
 
@@ -57,7 +62,7 @@ export function HasilAIBox({ izin, onKlasifikasiUlang, memproses = false }: Prop
           ) : (
             <>
               <Ionicons name="refresh" size={14} color={colors.navy} />
-              <Text style={styles.ulangText}>Klasifikasi Ulang</Text>
+              <Text style={styles.ulangText}>Analisis Ulang</Text>
             </>
           )}
         </Pressable>

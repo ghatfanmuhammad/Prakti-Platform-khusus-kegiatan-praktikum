@@ -36,12 +36,12 @@ export interface PengajuanIzin {
   reviewedBy?: string;
   /** UID asisten yang meninjau (dicek oleh Security Rules). */
   reviewedByUid?: string;
-  /** Prediksi kategori alasan dari model AI (informasi pendukung, bukan keputusan). */
+  /** Prediksi sentimen alasan (positif/netral/negatif) dari model AI; informasi pendukung, bukan keputusan. */
   kategoriAI?: string | null;
-  /** Tingkat keyakinan prediksi 0..1. */
+  /** Tingkat keyakinan 0..1; null untuk model sentimen (tidak memberi probabilitas). */
   confidenceAI?: number | null;
   statusAI?: StatusAI;
-  /** Pesan singkat bila klasifikasi AI gagal. */
+  /** Pesan singkat bila analisis AI gagal. */
   pesanAI?: string | null;
   diklasifikasiPada?: unknown;
   createdAt?: unknown;

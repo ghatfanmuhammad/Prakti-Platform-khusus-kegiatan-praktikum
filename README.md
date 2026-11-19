@@ -26,9 +26,10 @@ Pada **Sprint 2**, data *dummy* diganti dengan data dinamis yang dapat diakses b
 - **Cloud Firestore** untuk penyimpanan data permanen dan sinkronisasi *real-time* antar pengguna.
 - **Pengajuan izin** oleh praktikan yang diperiksa dan diputuskan oleh asisten.
 - **Firebase Security Rules** agar data hanya dapat diakses dan diubah sesuai peran pengguna.
+- **Analisis sentimen alasan izin (AI)** dengan model LinearSVC yang berjalan langsung di perangkat (`src/services/ai/`), tanpa internet dan tanpa API key. Hasilnya (*positif*, *netral*, *negatif*) tampil di layar pemeriksaan izin asisten.
 
 > [!NOTE]  
-> Integrasi model AI (klasifikasi alasan izin) belum dikerjakan pada sprint ini. Keputusan izin sepenuhnya ditentukan oleh asisten.
+> Hasil AI hanya informasi pendukung; keputusan izin sepenuhnya ditentukan oleh asisten. Model dilatih dari komentar evaluasi dosen (dataset publik [EDOM sentiment](https://github.com/samfch/edom-sentiment), lisensi MIT), bukan dari alasan izin praktikum, dan kelas *netral* paling lemah, jadi prediksinya masih perkiraan kasar.
 
 ---
 

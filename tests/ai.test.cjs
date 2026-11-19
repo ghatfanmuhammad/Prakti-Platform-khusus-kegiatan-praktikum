@@ -4,59 +4,83 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ts = require('typescript');
 
-// Memuat aiService.ts tanpa Expo; variabel env dibaca saat modul dimuat.
-function loadAi(env = {}) {
-  const filename = path.resolve(__dirname, '../src/services/aiService.ts');
+const AI_DIR = path.resolve(__dirname, '../src/services');
+const MODEL_PATH = path.join(AI_DIR, 'ai/model-edom.json');
+
+// Memuat modul TypeScript tanpa Expo/Firebase. Import relatif .ts dan .json diselesaikan manual.
+function load(filename) {
   const compiled = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const module = { exports: {} };
-  const processStub = { env };
-  new Function('require', 'module', 'exports', 'process', compiled)(
-    () => { throw new Error('aiService tidak boleh mengimpor modul lain'); },
-    module,
-    module.exports,
-    processStub,
-  );
+  const localRequire = (request) => {
+    if (!request.startsWith('.')) throw new Error(`Unexpected import ${request}`);
+    const target = path.resolve(path.dirname(filename), request);
+    if (request.endsWith('.json')) return JSON.parse(fs.readFileSync(target, 'utf8'));
+    return load(`${target}.ts`);
+  };
+  new Function('require', 'module', 'exports', compiled)(localRequire, module, module.exports);
   return module.exports;
 }
 
-const ai = loadAi();
+const { createSentimentClassifier } = load(path.join(AI_DIR, 'ai/sentiment.ts'));
 
-test('membaca respons zero-shot Hugging Face dan memilih skor tertinggi', () => {
-  const hasil = ai.bacaHasilKlasifikasi([
-    { label: 'Keluarga', score: 0.1 },
-    { label: 'Sakit', score: 0.82 },
-    { label: 'Lainnya', score: 0.08 },
-  ]);
-  assert.deepEqual(hasil, { kategori: 'Sakit', confidence: 0.82 });
+// Model mini buatan: cukup untuk menguji alur hitung tanpa file model asli.
+const modelMini = {
+  schema_version: 1,
+  status: 'research_baseline',
+  algorithm: 'LinearSVC',
+  labels: ['negatif', 'netral', 'positif'],
+  aliases: { gak: 'tidak' },
+  vocabulary: { bagus: 0, tidak: 1, 'tidak bagus': 2 },
+  idf: [1, 1, 1],
+  weights: [
+    [-1, 1, 3],
+    [0, 0, 0],
+    [1, -1, -3],
+  ],
+  bias: [0, 0.1, 0],
+  preprocessing: 'unicode_nfkd_ascii_words_unigram_bigram_sublinear_tf_l2_v1',
+};
+
+test('model mini: unigram, bigram, dan alias kata ikut dihitung', () => {
+  const classify = createSentimentClassifier(modelMini);
+  assert.equal(classify('Praktikumnya BAGUS!').label, 'positif');
+  // "gak" → "tidak", lalu bigram "tidak bagus" membalik sentimen
+  assert.equal(classify('gak bagus').label, 'negatif');
 });
 
-test('membaca format zero-shot lama { labels, scores }', () => {
-  const hasil = ai.bacaHasilKlasifikasi({
-    sequence: 'ban motor bocor di jalan',
-    labels: ['Transportasi', 'Lainnya'],
-    scores: [0.7, 0.3],
-  });
-  assert.deepEqual(hasil, { kategori: 'Transportasi', confidence: 0.7 });
+test('model mini: teks kosong atau tanpa kata dikenal menghasilkan label null', () => {
+  const classify = createSentimentClassifier(modelMini);
+  assert.equal(classify('').status, 'empty_input');
+  assert.equal(classify('').label, null);
+  assert.equal(classify('xyz qwerty').status, 'unknown_vocabulary');
 });
 
-test('skor persen dinormalisasi ke 0..1 dan respons tanpa kategori ditolak', () => {
-  assert.equal(ai.bacaHasilKlasifikasi({ kategori: 'Sakit', score: 92 }).confidence, 0.92);
-  assert.throws(() => ai.bacaHasilKlasifikasi({ foo: 1 }), (e) => e.kode === 'respons-tidak-valid');
+test('format model yang tidak didukung ditolak', () => {
+  assert.throws(() => createSentimentClassifier({ ...modelMini, schema_version: 2 }));
 });
 
-test('body request Hugging Face berisi teks dan semua kategori izin', () => {
-  const body = ai.buatBodyRequest('Saya demam sejak kemarin', true);
-  assert.equal(body.inputs, 'Saya demam sejak kemarin');
-  assert.deepEqual(body.parameters.candidate_labels, [...ai.KATEGORI_IZIN]);
-  assert.equal(body.parameters.multi_label, false);
-  assert.deepEqual(ai.buatBodyRequest('x', false), { text: 'x' });
+const adaModel = fs.existsSync(MODEL_PATH);
+const lewati = adaModel ? false : 'src/services/ai/model-edom.json belum ada';
+
+test('model EDOM: memprediksi sentimen alasan izin', { skip: lewati }, async () => {
+  const ai = load(path.join(AI_DIR, 'aiService.ts'));
+  const contoh = [
+    'Penjelasan asisten sangat jelas dan mudah dipahami, terima kasih',
+    'gak paham materinya',
+  ];
+  const hasil = await Promise.all(contoh.map((t) => ai.klasifikasiAlasan(t)));
+  assert.equal(hasil[0].kategori, 'positif');
+  assert.equal(hasil[1].kategori, 'negatif');
+  for (const h of hasil) {
+    assert.ok(['positif', 'netral', 'negatif'].includes(h.kategori));
+    assert.equal(h.confidence, null);
+  }
 });
 
-test('URL Hugging Face terdeteksi otomatis', () => {
-  const hf = loadAi({ EXPO_PUBLIC_AI_API_URL: 'https://router.huggingface.co/hf-inference/models/a/b' });
-  assert.ok('inputs' in hf.buatBodyRequest('alasan'));
-  const lain = loadAi({ EXPO_PUBLIC_AI_API_URL: 'https://contoh.ac.id/predict' });
-  assert.deepEqual(lain.buatBodyRequest('alasan'), { text: 'alasan' });
+test('model EDOM: alasan tanpa kata dikenal ditandai gagal, bukan netral', { skip: lewati }, async () => {
+  const ai = load(path.join(AI_DIR, 'aiService.ts'));
+  await assert.rejects(ai.klasifikasiAlasan('qwxz zzkq'), (e) => e.kode === 'tidak-dikenali');
+  assert.equal(ai.formatAiError({ kode: 'tidak-dikenali' }), 'Alasan tidak mengandung kata yang dikenali model.');
 });
