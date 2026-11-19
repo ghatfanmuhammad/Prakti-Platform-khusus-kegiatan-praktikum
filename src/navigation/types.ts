@@ -14,6 +14,8 @@ export type AppStackParamList = {
   Recap: { sesiId?: string } | undefined;
   /** Hanya asisten: Pemeriksaan pengajuan izin praktikan (SRS-011). */
   PemeriksaanIzin: undefined;
+  /** Hanya praktikan: halaman presensi untuk satu sesi (SRS-012). */
+  Presensi: { sesiId: string };
   /** Hanya praktikan. */
   History: undefined;
   /** Hanya praktikan: status pengajuan izin & keputusan asisten (SRS-011). */
