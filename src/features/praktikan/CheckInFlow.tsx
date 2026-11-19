@@ -1,61 +1,40 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
-import { Platform } from 'react-native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 import { useToast } from '../../components/Toast';
 import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
+import type { AppStackParamList } from '../../navigation/types';
 import type { Sesi } from '../../types';
-import { evaluateCheckIn, pesanGagalPresensi } from '../../utils/attendanceRules';
-import { cariPresensi, cariSesi, urutkanSesi } from '../../utils/selectors';
-import { CheckInSheet } from './CheckInSheet';
+import { cariPresensi, urutkanSesi } from '../../utils/selectors';
 import { SessionPickerSheet } from './SessionPickerSheet';
 
 interface CheckInFlowValue {
   /** Tombol presensi umum: memilih sesi dibuka yang belum dipresensi. */
   mulai: () => void;
-  /** Presensi untuk sesi tertentu (dari detail sesi atau beranda). */
+  /** Membuka halaman presensi untuk sesi tertentu (dari detail sesi atau beranda). */
   mulaiUntuk: (sesiId: string) => void;
 }
 
 const CheckInFlowContext = createContext<CheckInFlowValue | null>(null);
 
-// Modal kedua di iOS baru bisa tampil setelah modal pertama selesai menutup.
-const JEDA_MODAL_MS = Platform.OS === 'ios' ? 400 : 0;
-
+/**
+ * Menentukan sesi yang akan dipresensi, lalu membuka halaman Presensi (SRS-012).
+ * Provider ini berada di luar Stack.Navigator, sehingga useNavigation memakai
+ * navigasi root dari NavigationContainer dan diteruskan ke rute "Presensi".
+ */
 export function CheckInFlowProvider({ children }: { children: ReactNode }) {
   const praktikan = useCurrentPraktikan();
   const { sesi, presensi, practicum } = usePrakti();
   const toast = useToast();
+  const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [sheetSesiId, setSheetSesiId] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
 
   const mulaiUntuk = useCallback(
     (sesiId: string) => {
       if (!praktikan) return;
-      const cek = evaluateCheckIn({ sesi, presensi }, sesiId, praktikan.id, '');
-      if (!cek.ok && ['SESI_TIDAK_DITEMUKAN', 'SESI_BELUM_DIBUKA', 'SESI_DITUTUP', 'SUDAH_PRESENSI'].includes(cek.reason)) {
-        toast.show(pesanGagalPresensi(cek), cek.reason === 'SUDAH_PRESENSI' ? 'info' : 'error');
-        return;
-      }
-      setSheetSesiId(sesiId);
+      navigation.navigate('Presensi', { sesiId });
     },
-    [praktikan, sesi, presensi, toast],
+    [praktikan, navigation],
   );
 
   const kandidat = useMemo<Sesi[]>(
@@ -79,15 +58,15 @@ export function CheckInFlowProvider({ children }: { children: ReactNode }) {
     } else if (kandidat.length === 0) {
       toast.show('Kamu sudah presensi di semua sesi yang dibuka', 'info');
     } else if (kandidat.length === 1) {
-      setSheetSesiId(kandidat[0].id);
+      mulaiUntuk(kandidat[0].id);
     } else {
       setPickerVisible(true);
     }
-  }, [sesi, kandidat, toast, practicum]);
+  }, [sesi, kandidat, toast, practicum, mulaiUntuk]);
 
   const pilihDariDaftar = (dipilih: Sesi) => {
     setPickerVisible(false);
-    timer.current = setTimeout(() => setSheetSesiId(dipilih.id), JEDA_MODAL_MS);
+    mulaiUntuk(dipilih.id);
   };
 
   const value = useMemo(() => ({ mulai, mulaiUntuk }), [mulai, mulaiUntuk]);
@@ -100,11 +79,6 @@ export function CheckInFlowProvider({ children }: { children: ReactNode }) {
         options={kandidat}
         onClose={() => setPickerVisible(false)}
         onPick={pilihDariDaftar}
-      />
-      <CheckInSheet
-        visible={sheetSesiId !== null}
-        sesi={sheetSesiId ? (cariSesi(sesi, sheetSesiId) ?? null) : null}
-        onClose={() => setSheetSesiId(null)}
       />
     </CheckInFlowContext.Provider>
   );
