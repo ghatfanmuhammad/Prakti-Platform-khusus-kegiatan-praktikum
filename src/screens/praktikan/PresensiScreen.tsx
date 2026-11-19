@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '../../components/AppHeader';
 import { Button } from '../../components/Button';
@@ -16,8 +16,10 @@ import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
 import { errorMessage } from '../../features/data-praktikum/errors';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
 import { QrScanner } from '../../features/praktikan/QrScanner';
-import { keadaanPresensi, pesanKeadaanPresensi } from '../../features/presensi/halamanPresensi';
+import { keadaanPresensi, pesanKeadaanPresensi, type KeadaanPresensi } from '../../features/presensi/halamanPresensi';
+import { pesanHasilLokasi, type HasilLokasi } from '../../features/presensi/lokasi';
 import { useStatusPresensi } from '../../features/presensi/useStatusPresensi';
+import { useValidasiLokasi } from '../../features/presensi/useValidasiLokasi';
 import type { AppStackParamList } from '../../navigation/types';
 import { colors, radius, spacing, typography } from '../../theme';
 import { pesanGagalPresensi } from '../../utils/attendanceRules';
@@ -29,6 +31,7 @@ import { cariSesi } from '../../utils/selectors';
 type Props = NativeStackScreenProps<AppStackParamList, 'Presensi'>;
 
 type Metode = 'qr' | 'kode';
+type Tahap = 'lokasi' | 'simpan';
 
 const METODE = [
   { key: 'qr' as const, label: 'Scan QR' },
@@ -37,7 +40,8 @@ const METODE = [
 
 /**
  * [SRS-012] Halaman presensi yang terpisah dari detail sesi.
- * Menampilkan identitas dan status sesi; presensi hanya bisa diajukan saat sesi dibuka.
+ * [SRS-013] Presensi hanya dikirim bila posisi perangkat berada dalam radius laboratorium sesi.
+ * [SRS-018] Kondisi izin lokasi, GPS mati, koordinat belum tersedia, dan koneksi dijelaskan ke praktikan.
  */
 export function PresensiScreen({ navigation, route }: Props) {
   const praktikan = useCurrentPraktikan();
@@ -47,16 +51,23 @@ export function PresensiScreen({ navigation, route }: Props) {
   const [metode, setMetode] = useState<Metode>('qr');
   const [kode, setKode] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [tahap, setTahap] = useState<Tahap | null>(null);
   // Waktu hadir dari hasil penyimpanan, dipakai sampai snapshot presensi ikut diperbarui.
   const [waktuBaru, setWaktuBaru] = useState<string | null>(null);
   const pending = useRef(false);
 
   const sesi = cariSesi(daftarSesi, route.params.sesiId);
+  const keadaan: KeadaanPresensi | null = waktuBaru
+    ? { jenis: 'sudah_presensi', waktuHadir: waktuBaru }
+    : sesi && praktikan
+      ? keadaanPresensi(sesi, presensi, praktikan.id)
+      : null;
+  const bisaPresensi = keadaan?.jenis === 'bisa_presensi' && !status.loading && !status.error;
+  const lokasi = useValidasiLokasi(sesi, bisaPresensi);
 
   if (!praktikan) return null;
 
-  if (!sesi) {
+  if (!sesi || !keadaan) {
     return (
       <View style={styles.root}>
         <AppHeader subtitle="Presensi" onBack={navigation.goBack} />
@@ -69,18 +80,19 @@ export function PresensiScreen({ navigation, route }: Props) {
     );
   }
 
-  const keadaan = waktuBaru
-    ? ({ jenis: 'sudah_presensi', waktuHadir: waktuBaru } as const)
-    : keadaanPresensi(sesi, presensi, praktikan.id);
-
   const kirim = async (kodeMasuk: string = kode) => {
     if (pending.current) return;
     pending.current = true;
-    setBusy(true);
+    setError(null);
     try {
-      const hasil = await catatPresensi(sesi.id, praktikan.id, kodeMasuk);
+      // Lokasi diperiksa ulang tepat saat presensi diajukan, bukan memakai hasil lama.
+      setTahap('lokasi');
+      const cek = await lokasi.periksa();
+      // Hasil yang gagal sudah ditampilkan oleh panel lokasi, beserta tombol "Periksa Lagi".
+      if (cek.jenis !== 'dalam_radius') return;
+      setTahap('simpan');
+      const hasil = await catatPresensi(sesi.id, praktikan.id, kodeMasuk, cek);
       if (hasil.ok) {
-        setError(null);
         setWaktuBaru(hasil.presensi.waktuHadir);
         toast.show('Presensi berhasil', 'success');
       } else {
@@ -95,7 +107,7 @@ export function PresensiScreen({ navigation, route }: Props) {
       );
     } finally {
       pending.current = false;
-      setBusy(false);
+      setTahap(null);
     }
   };
 
@@ -111,6 +123,102 @@ export function PresensiScreen({ navigation, route }: Props) {
     }
     void kirim(isi.kode);
   };
+
+  const busy = tahap !== null;
+  const labelBusy = tahap === 'lokasi' ? 'Memeriksa lokasi…' : 'Mencatat…';
+
+  const panelLokasi = (hasil: HasilLokasi | null) => {
+    if (!hasil || (lokasi.memeriksa && !busy)) {
+      return (
+        <View style={[styles.box, styles.neutral]}>
+          <ActivityIndicator color={colors.navy} />
+          <Text style={[styles.boxText, { color: colors.textSecondary }]}>Memeriksa lokasimu…</Text>
+        </View>
+      );
+    }
+    const valid = hasil.jenis === 'dalam_radius';
+    const pengaturan = hasil.jenis === 'izin_ditolak' && !hasil.bisaMintaLagi;
+    return (
+      <View>
+        <View style={[styles.box, valid ? styles.success : styles.danger]}>
+          <Ionicons
+            name={valid ? 'location' : 'location-outline'}
+            size={20}
+            color={valid ? colors.successText : colors.danger}
+          />
+          <Text style={[styles.boxText, { color: valid ? colors.successText : colors.danger }]}>
+            {pesanHasilLokasi(hasil)}
+          </Text>
+        </View>
+        {!valid ? (
+          <View style={styles.actions}>
+            {pengaturan ? (
+              <Button
+                label="Buka Pengaturan"
+                icon="settings-outline"
+                onPress={() => void Linking.openSettings()}
+                style={styles.action}
+              />
+            ) : null}
+            <Button
+              label="Periksa Lagi"
+              icon="refresh"
+              variant="outline"
+              disabled={lokasi.memeriksa}
+              onPress={() => void lokasi.periksa()}
+              style={styles.action}
+            />
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  const formPresensi = () => (
+    <View style={styles.form}>
+      <View style={styles.tabs}>
+        <SegmentedControl
+          options={METODE}
+          value={metode}
+          onChange={(m) => {
+            setMetode(m);
+            setError(null);
+          }}
+        />
+      </View>
+      {metode === 'qr' ? (
+        <>
+          <Text style={styles.hint}>Arahkan kamera ke QR di layar asisten.</Text>
+          <View style={styles.scanner}>
+            <QrScanner onScan={saatScan} paused={busy} />
+          </View>
+          {busy ? <Text style={styles.hint}>{labelBusy}</Text> : null}
+        </>
+      ) : (
+        <>
+          <Text style={styles.hint}>Masukkan kode {PANJANG_KODE} angka dari asisten.</Text>
+          <View style={styles.otp}>
+            <OtpInput
+              value={kode}
+              onChangeText={(v) => {
+                setKode(v);
+                setError(null);
+              }}
+              length={PANJANG_KODE}
+              hasError={error !== null}
+            />
+          </View>
+          <Button
+            label={busy ? labelBusy : 'Kirim Presensi'}
+            icon="checkmark-circle-outline"
+            disabled={busy || kode.length < PANJANG_KODE}
+            onPress={() => void kirim()}
+            style={styles.fullButton}
+          />
+        </>
+      )}
+    </View>
+  );
 
   const panel = () => {
     // Form baru tampil setelah catatan presensi termuat, agar praktikan yang sudah hadir
@@ -149,47 +257,10 @@ export function PresensiScreen({ navigation, route }: Props) {
     return (
       <View>
         <Text style={styles.panelTitle}>Ajukan Presensi</Text>
-        <View style={styles.tabs}>
-          <SegmentedControl
-            options={METODE}
-            value={metode}
-            onChange={(m) => {
-              setMetode(m);
-              setError(null);
-            }}
-          />
-        </View>
-        {metode === 'qr' ? (
-          <>
-            <Text style={styles.hint}>Arahkan kamera ke QR di layar asisten.</Text>
-            <View style={styles.scanner}>
-              <QrScanner onScan={saatScan} paused={busy} />
-            </View>
-            {busy ? <Text style={styles.hint}>Mencatat presensi…</Text> : null}
-          </>
-        ) : (
-          <>
-            <Text style={styles.hint}>Masukkan kode {PANJANG_KODE} angka dari asisten.</Text>
-            <View style={styles.otp}>
-              <OtpInput
-                value={kode}
-                onChangeText={(v) => {
-                  setKode(v);
-                  setError(null);
-                }}
-                length={PANJANG_KODE}
-                hasError={error !== null}
-              />
-            </View>
-            <Button
-              label={busy ? 'Mencatat…' : 'Kirim Presensi'}
-              icon="checkmark-circle-outline"
-              disabled={busy || kode.length < PANJANG_KODE}
-              onPress={() => void kirim()}
-              style={styles.fullButton}
-            />
-          </>
-        )}
+        <Text style={styles.hint}>Presensi hanya bisa dikirim dari dalam radius laboratorium.</Text>
+        <View style={styles.lokasi}>{panelLokasi(lokasi.hasil)}</View>
+        {/* Form tetap tampil saat memeriksa ulang agar kode yang sudah diketik tidak hilang. */}
+        {lokasi.hasil?.jenis === 'dalam_radius' || busy ? formPresensi() : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
     );
@@ -229,6 +300,10 @@ const styles = StyleSheet.create({
   info: { marginTop: spacing.md, gap: spacing.sm },
 
   panelTitle: { ...typography.subtitle, color: colors.textPrimary, textAlign: 'center' },
+  lokasi: { marginTop: spacing.md },
+  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  action: { flex: 1 },
+  form: { marginTop: spacing.sm },
   tabs: { marginTop: spacing.lg, alignItems: 'center' },
   hint: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
   scanner: { marginTop: spacing.lg },
@@ -249,6 +324,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   neutral: { backgroundColor: colors.background, borderColor: colors.border },
+  success: { backgroundColor: colors.successBg, borderColor: colors.successBorder },
   danger: { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
   boxText: { ...typography.bodyBold, flex: 1 },
 });
