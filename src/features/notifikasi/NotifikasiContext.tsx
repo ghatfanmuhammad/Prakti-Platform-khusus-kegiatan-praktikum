@@ -124,7 +124,7 @@ function useBukaLayarDariNotifikasi(uid: string | null) {
     ditangani.current = id;
     const data = respons.notification.request.content.data as Partial<DataNotifikasi> | undefined;
     if (data?.jenis === 'sesi_dibuka' && typeof data.sesiId === 'string') {
-      navigationRef.navigate('SessionDetail', { sesiId: data.sesiId });
+      navigationRef.navigate('Presensi', { sesiId: data.sesiId });
     } else if (data?.jenis === 'jadwal_berubah') {
       navigationRef.navigate('Schedule');
     } else if (data?.jenis === 'keputusan_izin') {
