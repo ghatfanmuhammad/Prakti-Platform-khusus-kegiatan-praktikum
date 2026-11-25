@@ -44,6 +44,8 @@ export function AsistenHomeScreen({ navigation }: Props) {
             { key: 'jadwal', label: 'Jadwal', icon: 'calendar-outline', onPress: () => navigation.navigate('Schedule') },
             { key: 'rekap', label: 'Rekap', icon: 'list-outline', onPress: () => navigation.navigate('Recap') },
             { key: 'izin', label: 'Cek Izin', icon: 'document-text-outline', onPress: () => navigation.navigate('PemeriksaanIzin') },
+            { key: 'maps', label: 'Maps', icon: 'map-outline', onPress: () => navigation.navigate('Maps') },
+            { key: 'kelolalab', label: 'Kelola Lab', icon: 'business-outline', onPress: () => navigation.navigate('KelolaLab') },
             { key: 'profil', label: 'Profil', icon: 'person-outline', onPress: () => navigation.navigate('Tabs', { screen: 'Profil' }) },
           ]}
         />
