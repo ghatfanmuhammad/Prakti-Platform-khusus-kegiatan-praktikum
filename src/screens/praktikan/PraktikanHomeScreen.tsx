@@ -52,6 +52,7 @@ export function PraktikanHomeScreen({ navigation }: Props) {
           items={[
             { key: 'jadwal', label: 'Jadwal', icon: 'calendar-outline', onPress: () => navigation.navigate('Schedule') },
             { key: 'presensi', label: 'Presensi', icon: 'qr-code-outline', onPress: mulai },
+            { key: 'maps', label: 'Maps', icon: 'map-outline', onPress: () => navigation.navigate('Maps') },
             { key: 'riwayat', label: 'Riwayat', icon: 'time-outline', onPress: () => navigation.navigate('History') },
             { key: 'izin', label: 'Status Izin', icon: 'document-text-outline', onPress: () => navigation.navigate('StatusIzin') },
           ]}

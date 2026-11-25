@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/AppHeader';
 import { StatusPill } from '../../components/StatusPill';
 import { usePrakti } from '../../context/PraktiContext';
+import { useLaboratorium } from '../laboratorium/hooks';
 import { colors } from '../../theme';
 import { errorMessage } from './errors';
 import {
@@ -254,6 +255,13 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
               {(item as Schedule).hari}, {(item as Schedule).mulai}–{(item as Schedule).selesai} WIB
             </Text>
             <Text style={styles.body}>{(item as Schedule).ruangan}</Text>
+            <Text style={styles.muted}>
+              {(item as Schedule).labId
+                ? 'Terhubung ke laboratorium di Maps'
+                : assistant
+                  ? 'Belum dihubungkan ke laboratorium. Ubah jadwal untuk memilih lab.'
+                  : 'Belum dihubungkan ke laboratorium.'}
+            </Text>
           </>
         ) : (
           <>
@@ -528,6 +536,7 @@ function RecordEditor({
   });
   const update = (field: string, value: string) =>
     setValues((previous) => ({ ...previous, [field]: value }));
+  const labs = useLaboratorium();
   function field(
     name: string,
     label: string,
@@ -621,6 +630,34 @@ function RecordEditor({
                 {field('mulai', 'Jam mulai (WIB)', '08:00', 5)}
                 {field('selesai', 'Jam selesai (WIB)', '10:00', 5)}
                 {field('ruangan', 'Ruangan', 'Lab Komputer 1', 120)}
+                <View style={styles.field}>
+                  <Text style={styles.label}>Laboratorium (untuk Maps dan validasi presensi)</Text>
+                  {labs.data.length === 0 ? (
+                    <Text style={styles.muted}>
+                      Belum ada laboratorium. Tambahkan lebih dulu di menu Kelola Lab.
+                    </Text>
+                  ) : (
+                    <View style={styles.row}>
+                      {labs.data.map((lab) => (
+                        <Pressable
+                          key={lab.id}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: values.labId === lab.id }}
+                          disabled={busy}
+                          onPress={() => {
+                            update('labId', lab.id);
+                            update('ruangan', lab.nama);
+                          }}
+                          style={[styles.chip, values.labId === lab.id && styles.chipSelected]}
+                        >
+                          <Text style={[styles.chipText, values.labId === lab.id && styles.selectedText]}>
+                            {lab.nama}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </View>
               </>
             )}
             {editor.kind === 'sesi' && (

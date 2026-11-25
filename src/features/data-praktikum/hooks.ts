@@ -225,6 +225,7 @@ export function usePracticumData(identity: Identity | null, retry: number) {
           mulai: schedule.mulai,
           selesai: schedule.selesai,
           ruang: schedule.ruangan,
+          labId: schedule.labId,
           asistenId: session.asistenId,
           status: session.status,
           modul: session.modul,

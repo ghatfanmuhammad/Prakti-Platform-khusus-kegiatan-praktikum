@@ -274,3 +274,34 @@ test('a maximum-length Firebase UID can be enrolled, edited, and removed', async
   assert.equal(documents.has(`participants/${id}`), false);
   assert.equal(documents.get(`classes/${classId}`).participantCount, 0);
 });
+
+test('schedule can be saved and edited with labId; old schedules without labId remain valid', async () => {
+  const classId = await makeClass();
+  const scheduleId = await repository.saveRecord('jadwal', classId, null, {
+    hari: 'Senin',
+    mulai: '08:00',
+    selesai: '10:00',
+    ruangan: 'Lab 1',
+    labId: 'lab-1',
+  });
+  assert.equal(documents.get(`classes/${classId}/schedules/${scheduleId}`).labId, 'lab-1');
+
+  // Update schedule labId
+  await repository.saveRecord('jadwal', classId, scheduleId, {
+    hari: 'Senin',
+    mulai: '08:00',
+    selesai: '10:00',
+    ruangan: 'Lab 1',
+    labId: 'lab-2',
+  });
+  assert.equal(documents.get(`classes/${classId}/schedules/${scheduleId}`).labId, 'lab-2');
+
+  // Schedule without labId
+  const oldSchedId = await repository.saveRecord('jadwal', classId, null, {
+    hari: 'Selasa',
+    mulai: '08:00',
+    selesai: '10:00',
+    ruangan: 'Lab 2',
+  });
+  assert.equal(documents.get(`classes/${classId}/schedules/${oldSchedId}`).labId, undefined);
+});

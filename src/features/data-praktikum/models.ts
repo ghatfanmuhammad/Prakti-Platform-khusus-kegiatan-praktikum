@@ -31,6 +31,8 @@ export interface Schedule extends RecordBase {
   mulai: string;
   selesai: string;
   ruangan: string;
+  /** ID laboratorium (SRS-014). Opsional untuk jadwal lama. */
+  labId?: string;
   sessionCount: number;
 }
 export interface PracticumSession extends RecordBase {
