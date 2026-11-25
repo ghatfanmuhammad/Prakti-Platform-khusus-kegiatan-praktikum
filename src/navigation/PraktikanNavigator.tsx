@@ -8,6 +8,7 @@ import { HistoryScreen } from '../screens/praktikan/HistoryScreen';
 import { PraktikanHomeScreen } from '../screens/praktikan/PraktikanHomeScreen';
 import { PresensiScreen } from '../screens/praktikan/PresensiScreen';
 import { StatusIzinScreen } from '../screens/praktikan/StatusIzinScreen';
+import { MapsScreen } from '../screens/shared/MapsScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { ScheduleScreen } from '../screens/shared/ScheduleScreen';
 import { SessionDetailScreen } from '../screens/shared/SessionDetailScreen';
@@ -45,6 +46,7 @@ export function PraktikanNavigator() {
         <Stack.Screen name="History" component={HistoryScreen} />
         <Stack.Screen name="StatusIzin" component={StatusIzinScreen} />
         <Stack.Screen name="AjukanIzin" component={AjukanIzinScreen} />
+        <Stack.Screen name="Maps" component={MapsScreen} />
       </Stack.Navigator>
     </CheckInFlowProvider>
   );

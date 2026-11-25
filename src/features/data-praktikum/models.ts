@@ -31,8 +31,8 @@ export interface Schedule extends RecordBase {
   mulai: string;
   selesai: string;
   ruangan: string;
-  /** Diisi lewat pengelolaan laboratorium (SRS-014). */
-  labId?: string | null;
+  /** ID laboratorium (SRS-014). Opsional untuk jadwal lama. */
+  labId?: string;
   sessionCount: number;
 }
 export interface PracticumSession extends RecordBase {
@@ -43,8 +43,6 @@ export interface PracticumSession extends RecordBase {
   status: SessionStatus;
   asistenId: string;
   topik: string | null;
-  /** Salinan labId dari jadwal saat sesi dibuat (SRS-014). */
-  labId?: string | null;
 }
 export type PracticumRecord = PracticumClass | Participant | Schedule | PracticumSession;
 export type FormValues = Record<string, string>;

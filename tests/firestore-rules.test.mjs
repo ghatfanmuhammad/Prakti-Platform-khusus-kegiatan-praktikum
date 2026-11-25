@@ -5,6 +5,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import {
   collection,
   connectFirestoreEmulator,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -290,3 +291,68 @@ test('QR check-in validates the code, membership, and one check-in per session',
   await denied(updateDoc(ref, { status: 'dibuka', updatedAt: serverTimestamp() }));
   await denied(updateDoc(ref, { modul: 'Changed', updatedAt: serverTimestamp() }));
 });
+
+test(
+  'laboratories: assistants can write, students and assistants can read, anonymous is denied',
+  options,
+  async () => {
+    const labRef = doc(assistant, 'laboratories/lab-test');
+    await denied(getDoc(doc(anonymous, 'laboratories/lab-test')));
+    await denied(setDoc(doc(anonymous, 'laboratories/lab-test'), { nama: 'Lab Anon' }));
+    await denied(setDoc(doc(student, 'laboratories/lab-test'), { nama: 'Lab Mhs' }));
+
+    await setDoc(labRef, { nama: 'Lab Test', lat: -6.2, lng: 106.8, radiusMeter: 50 });
+    assert.equal((await getDoc(doc(student, 'laboratories/lab-test'))).exists(), true);
+    assert.equal((await getDoc(doc(assistant, 'laboratories/lab-test'))).exists(), true);
+
+    await updateDoc(labRef, { nama: 'Lab Test Updated' });
+    assert.equal(
+      (await getDoc(doc(student, 'laboratories/lab-test'))).data().nama,
+      'Lab Test Updated',
+    );
+    await denied(updateDoc(doc(student, 'laboratories/lab-test'), { nama: 'Lab Hack' }));
+
+    await denied(deleteDoc(doc(student, 'laboratories/lab-test')));
+    await deleteDoc(labRef);
+    assert.equal((await getDoc(doc(assistant, 'laboratories/lab-test'))).exists(), false);
+  },
+);
+
+test(
+  'assistant can create and edit schedule with labId; schedules without labId remain valid',
+  options,
+  async () => {
+    const classRef = doc(assistant, 'classes/lab-sched');
+    await setDoc(classRef, {
+      ...klass('LS'),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    const schedRef = doc(assistant, 'classes/lab-sched/schedules/friday');
+
+    const addSchedule = writeBatch(assistant);
+    addSchedule.set(schedRef, {
+      ...schedule(),
+      hari: 'Jumat',
+      labId: 'lab-1',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    addSchedule.update(classRef, {
+      scheduleCount: 1,
+      lastChildId: 'friday',
+      updatedAt: serverTimestamp(),
+    });
+    await addSchedule.commit();
+
+    assert.equal((await getDoc(schedRef)).data().labId, 'lab-1');
+
+    await updateDoc(schedRef, { labId: 'lab-2', updatedAt: serverTimestamp() });
+    assert.equal((await getDoc(schedRef)).data().labId, 'lab-2');
+
+    const oldSchedRef = doc(assistant, 'classes/own/schedules/schedule');
+    assert.equal((await getDoc(oldSchedRef)).data().labId, undefined);
+    await updateDoc(oldSchedRef, { ruangan: 'Lab 2 Baru', updatedAt: serverTimestamp() });
+    assert.equal((await getDoc(oldSchedRef)).data().ruangan, 'Lab 2 Baru');
+  },
+);
