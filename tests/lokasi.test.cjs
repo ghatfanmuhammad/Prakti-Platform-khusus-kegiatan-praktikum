@@ -86,3 +86,10 @@ test('formatMeter membulatkan meter dan memakai km untuk jarak jauh', () => {
   assert.equal(formatMeter(33.4), '33 m');
   assert.equal(formatMeter(1530), '1,5 km');
 });
+
+
+test('invalid coordinates and accuracy never pass the radius guard', () => {
+  for (const bad of [
+    { lat: NaN }, { lat: 91 }, { lng: Infinity }, { lng: -181 }, { akurasi: -1 }, { akurasi: NaN },
+  ]) assert.equal(periksaRadius({ ...geser(0), ...bad }, lab).jenis, 'koordinat_tidak_tersedia');
+});

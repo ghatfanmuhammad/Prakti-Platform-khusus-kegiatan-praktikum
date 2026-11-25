@@ -4,8 +4,9 @@ import { auth, db } from '../../services/firebase';
 import type { Sesi } from '../../types';
 import type { CheckInResult } from '../../utils/attendanceRules';
 import { PANJANG_KODE } from '../../utils/code';
+import { bacaLaboratorium, periksaRadius, type LokasiValid } from '../presensi/lokasi';
 
-export async function saveAttendance(sesi: Sesi, uid: string, input: string): Promise<CheckInResult> {
+export async function saveAttendance(sesi: Sesi, uid: string, input: string, lokasi: LokasiValid): Promise<CheckInResult> {
   if (auth.currentUser?.uid !== uid || !sesi.classId || !sesi.sessionId) throw new Error('Silakan masuk kembali.');
   const kode = input.trim();
   if (!kode) return { ok: false, reason: 'KODE_KOSONG' };
@@ -18,6 +19,18 @@ export async function saveAttendance(sesi: Sesi, uid: string, input: string): Pr
     if (!current.exists()) return { ok: false, reason: 'SESI_TIDAK_DITEMUKAN' } as const;
     if (current.data().status === 'belum_dibuka') return { ok: false, reason: 'SESI_BELUM_DIBUKA' } as const;
     if (current.data().status === 'ditutup') return { ok: false, reason: 'SESI_DITUTUP' } as const;
+
+    if (current.data().status !== 'dibuka') return { ok: false, reason: 'SESI_BELUM_DIBUKA' } as const;
+    const schedule = await tx.get(doc(db, 'classes', sesi.classId!, 'schedules', current.data().scheduleId));
+    const labId = schedule.data()?.labId;
+    if (!labId || !lokasi || lokasi.jenis !== 'dalam_radius' || lokasi.lab.id !== labId) {
+      throw new Error('Laboratorium berubah atau belum diatur. Periksa lokasi lagi.');
+    }
+    const labSnapshot = await tx.get(doc(db, 'laboratories', labId));
+    const lab = bacaLaboratorium(labId, labSnapshot.data());
+    if (!lab || !lokasi.posisi || periksaRadius(lokasi.posisi, lab).jenis !== 'dalam_radius') {
+      throw new Error('Posisi berada di luar radius atau belum tervalidasi. Periksa lokasi lagi.');
+    }
 
     const existing = await tx.get(target);
     if (existing.exists()) {
@@ -34,6 +47,7 @@ export async function saveAttendance(sesi: Sesi, uid: string, input: string): Pr
       praktikanId: uid,
       kode,
       waktuHadir: serverTimestamp(),
+      lokasi: { labId, ...lokasi.posisi },
     });
     return null;
   });

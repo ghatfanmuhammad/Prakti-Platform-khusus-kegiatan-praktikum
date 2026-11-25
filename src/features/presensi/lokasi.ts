@@ -23,7 +23,7 @@ export interface Posisi {
 export const BATAS_AKURASI_M = 100;
 
 export type HasilLokasi =
-  | { jenis: 'dalam_radius'; jarak: number; lab: Laboratorium; akurasi: number | null }
+  | { jenis: 'dalam_radius'; jarak: number; lab: Laboratorium; akurasi: number | null; posisi: Posisi }
   | { jenis: 'di_luar_radius'; jarak: number; lab: Laboratorium }
   | { jenis: 'kurang_akurat'; akurasi: number }
   | { jenis: 'lab_belum_diatur' }
@@ -47,12 +47,16 @@ export function jarakMeter(a: { lat: number; lng: number }, b: { lat: number; ln
 
 /** Membandingkan posisi perangkat dengan radius laboratorium. */
 export function periksaRadius(posisi: Posisi, lab: Laboratorium): HasilLokasi {
+  if (!angkaValid(posisi.lat, -90, 90) || !angkaValid(posisi.lng, -180, 180)
+    || (posisi.akurasi !== null && !angkaValid(posisi.akurasi, 0, Number.MAX_VALUE))) {
+    return { jenis: 'koordinat_tidak_tersedia' };
+  }
   if (posisi.akurasi !== null && posisi.akurasi > BATAS_AKURASI_M) {
     return { jenis: 'kurang_akurat', akurasi: posisi.akurasi };
   }
   const jarak = jarakMeter(posisi, lab);
   return jarak <= lab.radiusMeter
-    ? { jenis: 'dalam_radius', jarak, lab, akurasi: posisi.akurasi }
+    ? { jenis: 'dalam_radius', jarak, lab, akurasi: posisi.akurasi, posisi }
     : { jenis: 'di_luar_radius', jarak, lab };
 }
 

@@ -95,12 +95,12 @@ export function PraktiProvider({ children }: { children: ReactNode }) {
     kode: string,
     lokasi: LokasiValid,
   ): Promise<CheckInResult> => {
-    // Pengaman terakhir di sisi aplikasi; aturan Firestore untuk lokasi menyusul (lihat SRS-013).
-    if (lokasi.jenis !== 'dalam_radius') throw new Error('Lokasi belum tervalidasi. Periksa lokasi lalu coba lagi.');
+    // Kedua metode memakai validasi yang sama; repository dan rules memeriksa data lab terkini.
+    if (!lokasi || lokasi.jenis !== 'dalam_radius') throw new Error('Lokasi belum tervalidasi. Periksa lokasi lalu coba lagi.');
     if (!state.demo) {
       const target = cariSesi(sesi, sesiId);
       if (!target) return { ok: false, reason: 'SESI_TIDAK_DITEMUKAN' };
-      return saveAttendance(target, praktikanId, kode);
+      return saveAttendance(target, praktikanId, kode, lokasi);
     }
     const hasil = evaluateCheckIn({ sesi, presensi }, sesiId, praktikanId, kode);
     if (hasil.ok) dispatch({ type: 'TAMBAH_PRESENSI', presensi: hasil.presensi });

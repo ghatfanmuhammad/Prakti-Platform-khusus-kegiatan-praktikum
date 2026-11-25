@@ -1,4 +1,4 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDocFromServer } from 'firebase/firestore';
 
 import { db } from '../../services/firebase';
 import { errorMessage } from '../data-praktikum/errors';
@@ -9,14 +9,14 @@ export type HasilMuatLab =
   | { ok: false; hasil: Extract<HasilLokasi, { jenis: 'lab_belum_diatur' | 'lab_gagal_dimuat' }> };
 
 /**
- * Satu-satunya tempat yang membaca data laboratorium (SRS-014, milik Evelin).
- * Kontrak yang diusulkan: `laboratories/{labId}` berisi `{ nama, lat, lng, radiusMeter }`,
- * dan `labId` disimpan di jadwal lalu disalin ke sesi. Jika kontraknya berubah, cukup ubah file ini.
+ * Membaca laboratorium dari server sesuai kontrak SRS-014 di main.
+ * Kontrak: `laboratories/{labId}` berisi `{ nama, lat, lng, radiusMeter }`,
+ * dan `labId` berasal dari jadwal sesi.
  */
 export async function muatLaboratorium(labId: string | null | undefined): Promise<HasilMuatLab> {
   if (!labId) return { ok: false, hasil: { jenis: 'lab_belum_diatur' } };
   try {
-    const snapshot = await getDoc(doc(db, 'laboratories', labId));
+    const snapshot = await getDocFromServer(doc(db, 'laboratories', labId));
     const lab = bacaLaboratorium(snapshot.id, snapshot.data());
     return lab ? { ok: true, lab } : { ok: false, hasil: { jenis: 'lab_belum_diatur' } };
   } catch (err) {
