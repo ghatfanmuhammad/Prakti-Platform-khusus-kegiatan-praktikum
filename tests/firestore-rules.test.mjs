@@ -1,5 +1,7 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import * as firestore from 'firebase/firestore';
 import { readFile } from 'node:fs/promises';
 import { initializeApp, deleteApp } from 'firebase/app';
 import {
@@ -23,6 +25,13 @@ import {
 const address = process.env.FIRESTORE_EMULATOR_HOST;
 const projectId = 'demo-prakti-srs008-tests';
 const apps = [];
+const require = createRequire(import.meta.url);
+const load = require('./helpers/load-typescript.cjs');
+const { periksaRadius } = load(new URL('../src/features/presensi/lokasi.ts', import.meta.url).pathname);
+const { bacaIsiQr, buatIsiQr } = load(new URL('../src/utils/qr.ts', import.meta.url).pathname);
+const lab = { id: 'lab-1', nama: 'Lab 1', lat: -6.2, lng: 106.8, radiusMeter: 50 };
+const posisi = { lat: lab.lat, lng: lab.lng, akurasi: 10 };
+const lokasi = { labId: lab.id, ...posisi };
 let assistant, student, anonymous;
 const denied = (operation) =>
   assert.rejects(operation, (error) => error.code === 'permission-denied');
@@ -109,6 +118,7 @@ before(async () => {
   });
   seed.set(doc(admin, 'classes/own/schedules/schedule'), {
     ...schedule(),
+    labId: lab.id,
     sessionCount: 1,
   });
   seed.set(doc(admin, 'classes/other/schedules/schedule'), schedule());
@@ -123,6 +133,7 @@ before(async () => {
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  seed.set(doc(admin, 'laboratories', lab.id), lab);
   await seed.commit();
   assistant = client('assistant');
   student = client('student');
@@ -271,14 +282,16 @@ test('QR check-in validates the code, membership, and one check-in per session',
   await open.commit();
   await denied(getDoc(doc(student, 'sessionCodes/own~session')));
 
-  const checkIn = (db, uid, kode) => setDoc(doc(db, `attendance/own~session~${uid}`), {
-    classId: 'own',
-    sessionId: 'session',
-    sesiId: 'own~session',
-    praktikanId: uid,
-    kode,
-    waktuHadir: serverTimestamp(),
-  });
+  const checkIn = (db, uid, kode) => {
+    const batch = writeBatch(db);
+    const id = `own~session~${uid}`;
+    batch.set(doc(db, 'attendance', id), {
+      classId: 'own', sessionId: 'session', sesiId: 'own~session', praktikanId: uid, kode,
+      waktuHadir: serverTimestamp(),
+    });
+    batch.set(doc(db, 'attendanceLocations', id), { lokasi, waktuHadir: serverTimestamp() });
+    return batch.commit();
+  };
   await denied(checkIn(student, 'student', '0000'));
   await denied(checkIn(client('other'), 'other', '4829'));
   await checkIn(student, 'student', '4829');
@@ -350,9 +363,80 @@ test(
     await updateDoc(schedRef, { labId: 'lab-2', updatedAt: serverTimestamp() });
     assert.equal((await getDoc(schedRef)).data().labId, 'lab-2');
 
-    const oldSchedRef = doc(assistant, 'classes/own/schedules/schedule');
+    const oldSchedRef = doc(assistant, 'classes/other/schedules/schedule');
     assert.equal((await getDoc(oldSchedRef)).data().labId, undefined);
     await updateDoc(oldSchedRef, { ruangan: 'Lab 2 Baru', updatedAt: serverTimestamp() });
     assert.equal((await getDoc(oldSchedRef)).data().ruangan, 'Lab 2 Baru');
   },
 );
+
+
+for (const metode of ['qr', 'manual']) {
+  test(`${metode}: real saveAttendance persists inside, rejects outside/closed/duplicate without new records`, options, async () => {
+    const admin = client('owner');
+    const sessionId = `radius-${metode}`;
+    const sesi = { id: `own~${sessionId}`, classId: 'own', sessionId };
+    const sessionRef = doc(admin, 'classes/own/sessions', sessionId);
+    await setDoc(sessionRef, { scheduleId: 'schedule', status: 'dibuka' });
+    await setDoc(doc(admin, 'sessionCodes', sesi.id), { classId: 'own', sesiId: sessionId, kode: '4829' });
+    const { saveAttendance } = load(new URL('../src/features/data-praktikum/attendance.ts', import.meta.url).pathname, {
+      'firebase/firestore': firestore,
+      '../../services/firebase': { db: student, auth: { currentUser: { uid: 'student' } } },
+    });
+    const kode = metode === 'qr' ? bacaIsiQr(buatIsiQr({ id: sesi.id, kode: '4829' })).kode : '4829';
+    const target = doc(student, 'attendance', `${sesi.id}~student`);
+    const outside = { ...posisi, lat: posisi.lat + 0.001 };
+    await assert.rejects(saveAttendance(sesi, 'student', kode, periksaRadius(outside, lab)));
+    assert.equal((await getDoc(target)).exists(), false, 'outside attempt must create no attendance');
+    // A forged successful client flag must also fail repository recalculation.
+    await assert.rejects(saveAttendance(sesi, 'student', kode, { ...periksaRadius(posisi, lab), posisi: outside }));
+    assert.equal((await getDoc(target)).exists(), false);
+    const privateRef = doc(student, 'attendanceLocations', target.id);
+    const summary = { classId: 'own', sessionId, sesiId: sesi.id, praktikanId: 'student', kode,
+      waktuHadir: serverTimestamp() };
+    const directWrite = (location) => {
+      const batch = writeBatch(student);
+      batch.set(target, summary);
+      batch.set(privateRef, { waktuHadir: serverTimestamp(), lokasi: location });
+      return batch.commit();
+    };
+    await denied(directWrite({ ...lokasi, ...outside }));
+    assert.equal((await getDoc(target)).exists(), false, 'rules reject direct outside writes');
+    assert.equal((await getDoc(privateRef)).exists(), false, 'failed attendance cannot leave private coordinates');
+    await denied(directWrite({ ...lokasi, labId: 'another-lab' }));
+    await denied(directWrite({ ...lokasi, akurasi: 101 }));
+    await denied(setDoc(target, summary));
+    await denied(setDoc(privateRef, { waktuHadir: serverTimestamp(), lokasi }));
+    await denied(setDoc(target, { ...summary, lokasi }));
+    await updateDoc(sessionRef, { status: 'ditutup' });
+    assert.equal((await saveAttendance(sesi, 'student', kode, periksaRadius(posisi, lab))).reason, 'SESI_DITUTUP');
+    await denied(directWrite(lokasi));
+    assert.equal((await getDoc(target)).exists(), false, 'closed session creates no attendance');
+    await updateDoc(sessionRef, { status: 'dibuka' });
+    const scheduleRef = doc(admin, 'classes/own/schedules/schedule');
+    await updateDoc(scheduleRef, { labId: 'changed-lab' });
+    await assert.rejects(saveAttendance(sesi, 'student', kode, periksaRadius(posisi, lab)), /Laboratorium berubah/);
+    assert.equal((await getDoc(target)).exists(), false);
+    await updateDoc(scheduleRef, { labId: lab.id });
+    const saved = await saveAttendance(sesi, 'student', kode, periksaRadius(posisi, lab));
+    assert.equal(saved.ok, true);
+    const original = (await getDoc(target)).data();
+    assert.equal(Object.hasOwn(original, 'lokasi'), false);
+    const privateOriginal = (await getDoc(privateRef)).data();
+    assert.deepEqual(privateOriginal.lokasi, lokasi);
+    assert.deepEqual((await getDoc(doc(assistant, 'attendance', target.id))).data(), original);
+    const recap = await getDocs(collection(assistant, 'attendance'));
+    assert.ok(recap.docs.some((row) => row.id === target.id), 'assistant recap remains queryable');
+    assert.ok(recap.docs.every((row) => !Object.hasOwn(row.data(), 'lokasi')));
+    for (const account of [assistant, anonymous, client('other')]) {
+      await denied(getDoc(doc(account, 'attendanceLocations', target.id)));
+      await denied(getDocs(collection(account, 'attendanceLocations')));
+    }
+    await denied(updateDoc(privateRef, { lokasi: { ...lokasi, lat: 0 } }));
+    await denied(deleteDoc(privateRef));
+    assert.equal((await saveAttendance(sesi, 'student', kode, periksaRadius(posisi, lab))).reason, 'SUDAH_PRESENSI');
+    await denied(directWrite(lokasi));
+    assert.deepEqual((await getDoc(target)).data(), original, 'duplicate cannot alter original attendance');
+    assert.deepEqual((await getDoc(privateRef)).data(), privateOriginal);
+  });
+}

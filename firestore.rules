@@ -303,15 +303,45 @@ service cloud.firestore {
         && getAfter(sesiPath(resource.data.classId, resource.data.sesiId)).data.asistenId == request.auth.uid;
     }
 
+    // Coordinates are written atomically with the public attendance summary.
+    // No assistant access: Firestore cannot redact individual fields on reads.
+    match /attendanceLocations/{id} {
+      allow get: if isPraktikan() && id.split('~').size() == 3
+        && id.split('~')[2] == request.auth.uid;
+      allow create: if isPraktikan()
+        && request.resource.data.keys().hasOnly(['lokasi', 'waktuHadir'])
+        && catatanHadirValid(getAfter(/databases/$(database)/documents/attendance/$(id)).data, id);
+    }
+
+    function koordinatValid(d) {
+      return d.lat is number && d.lat >= -90 && d.lat <= 90
+        && d.lng is number && d.lng >= -180 && d.lng <= 180;
+    }
+
+    // Rules menghitung jarak sendiri dari koordinat, tidak mempercayai flag/jarak klien.
+    // Koordinat tetap dilaporkan perangkat; ini bukan perlindungan GPS spoofing.
+    function lokasiHadirValid(lokasi, sesi, kelas) {
+      let jadwal = get(jadwalPath(kelas, sesi.scheduleId)).data;
+      let lab = get(/databases/$(database)/documents/laboratories/$(jadwal.labId)).data;
+      return lokasi.keys().hasOnly(['labId', 'lat', 'lng', 'akurasi'])
+        && lokasi.labId == jadwal.labId && koordinatValid(lokasi) && koordinatValid(lab)
+        && lab.radiusMeter is number && lab.radiusMeter >= 1 && lab.radiusMeter <= 10000
+        && (lokasi.akurasi == null || (lokasi.akurasi is number && lokasi.akurasi >= 0 && lokasi.akurasi <= 100))
+        && latlng.value(lokasi.lat, lokasi.lng).distance(latlng.value(lab.lat, lab.lng)) <= lab.radiusMeter;
+    }
+
     function catatanHadirValid(d, id) {
       let sesi = sesiPath(d.classId, d.sessionId);
+      let privat = getAfter(/databases/$(database)/documents/attendanceLocations/$(id)).data;
       return d.keys().hasOnly(['classId', 'sessionId', 'sesiId', 'praktikanId', 'kode', 'waktuHadir'])
         && idValid(d.classId) && idValid(d.sessionId)
         && d.praktikanId == request.auth.uid && d.sesiId == d.classId + '~' + d.sessionId
         && id == d.sesiId + '~' + request.auth.uid
         && anggota(d.classId) && d.waktuHadir == request.time
         && get(sesi).data.status == 'dibuka'
-        && d.kode == get(kodePath(d.classId, d.sessionId)).data.kode;
+        && d.kode == get(kodePath(d.classId, d.sessionId)).data.kode
+        && privat.waktuHadir == d.waktuHadir
+        && lokasiHadirValid(privat.lokasi, get(sesi).data, d.classId);
     }
 
     match /attendance/{id} {
