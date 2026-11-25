@@ -21,12 +21,11 @@ import { useCurrentAsisten } from '../../context/PraktiContext';
 import {
   formatIzinError,
   klasifikasiUlangIzin,
-  periksaIzin,
   subscribeDaftarIzin,
   type PengajuanIzin,
 } from '../../services/izinService';
-import { kirimKePengguna } from '../../services/notifikasiService';
-import { pesanKeputusanIzin, ringkasHasil } from '../../features/notifikasi/pesan';
+import { periksaIzinDenganNotifikasi } from '../../features/notifikasi/aksi';
+import { ringkasHasil } from '../../features/notifikasi/pesan';
 import { cardShadow, colors, radius, spacing, typography } from '../../theme';
 
 export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
@@ -97,18 +96,8 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
     setProcessing(true);
 
     try {
-      await periksaIzin(selectedIzin.id, actionType, { uid: asisten.id, nama: asisten.nama });
+      const hasil = await periksaIzinDenganNotifikasi(selectedIzin.id, actionType, { uid: asisten.id, nama: asisten.nama });
       tutupKonfirmasi();
-      // [SRS-017] Keputusan sudah tersimpan; beri tahu pemilik pengajuan
-      const hasil = await kirimKePengguna(
-        [selectedIzin.praktikanId],
-        pesanKeputusanIzin({
-          id: selectedIzin.id,
-          sesiNama: selectedIzin.sesiNama,
-          status: actionType,
-          reviewedBy: asisten.nama,
-        }),
-      );
       const terkirim = !hasil.galat && hasil.terkirim === 1;
       toast.show(
         `Izin ${actionType.toLowerCase()}. ${ringkasHasil(hasil)}`,

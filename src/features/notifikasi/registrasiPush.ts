@@ -3,6 +3,7 @@
  */
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance, IosAuthorizationStatus } from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { CHANNEL_ID } from './pesan';
@@ -67,7 +68,7 @@ export async function daftarkanPerangkat(mintaIzin = true): Promise<StatusPush> 
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
         name: 'Kegiatan praktikum',
         description: 'Sesi dibuka, perubahan jadwal, dan keputusan izin',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
       });
     }
@@ -76,7 +77,7 @@ export async function daftarkanPerangkat(mintaIzin = true): Promise<StatusPush> 
     if (!izin.granted && izin.canAskAgain && mintaIzin) {
       izin = await Notifications.requestPermissionsAsync();
     }
-    const provisional = izin.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+    const provisional = izin.ios?.status === IosAuthorizationStatus.PROVISIONAL;
     if (!izin.granted && !provisional) {
       return { kind: 'izin_ditolak', bisaDimintaLagi: izin.canAskAgain };
     }

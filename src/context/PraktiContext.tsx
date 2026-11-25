@@ -12,8 +12,8 @@ import { DAFTAR_ASISTEN, DAFTAR_PRAKTIKAN } from '../data';
 import { saveAttendance } from '../features/data-praktikum/attendance';
 import { usePracticumData } from '../features/data-praktikum/hooks';
 import { changeSessionStatus } from '../features/data-praktikum/repository';
-import { pesanSesiDibuka, type HasilKirim } from '../features/notifikasi/pesan';
-import { kirimKeKelas } from '../services/notifikasiService';
+import type { HasilKirim } from '../features/notifikasi/pesan';
+import { bukaSesiDenganNotifikasi } from '../features/notifikasi/aksi';
 import type { Asisten, CurrentUser, Praktikan, Presensi, Sesi } from '../types';
 import { evaluateCheckIn, type CheckInResult } from '../utils/attendanceRules';
 import { buatKodeSesi } from '../utils/code';
@@ -74,9 +74,7 @@ export function PraktiProvider({ children }: { children: ReactNode }) {
     }
     const target = cariSesi(sesi, sesiId);
     if (!target?.classId || !target.sessionId) throw new Error('Sesi tidak ditemukan.');
-    await changeSessionStatus(target.classId, target.sessionId, 'dibuka', topik);
-    // [SRS-017] Dikirim hanya setelah transaksi buka sesi berhasil tersimpan
-    return kirimKeKelas(target.classId, pesanSesiDibuka({ ...target, topik }));
+    return bukaSesiDenganNotifikasi(target, topik);
   };
 
   const tutupSesi = async (sesiId: string) => {

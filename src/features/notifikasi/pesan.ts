@@ -74,6 +74,7 @@ interface JadwalRingkas {
   mulai: string;
   selesai: string;
   ruangan: string;
+  labId?: string;
 }
 
 export function pesanJadwalBerubah(kelas: KelasRingkas, jadwal: JadwalRingkas): IsiNotifikasi {
@@ -120,7 +121,8 @@ export function jadwalBerubah(sebelum: JadwalRingkas, sesudah: JadwalRingkas): b
     sebelum.hari !== sesudah.hari ||
     sebelum.mulai !== sesudah.mulai ||
     sebelum.selesai !== sesudah.selesai ||
-    sebelum.ruangan !== sesudah.ruangan
+    sebelum.ruangan !== sesudah.ruangan ||
+    (sebelum.labId ?? '') !== (sesudah.labId ?? '')
   );
 }
 
@@ -163,13 +165,15 @@ type Tiket = { status?: string; message?: string; details?: { error?: string } }
 export function hitungTiket(respons: unknown, jumlahPesan: number): { terkirim: number; gagal: number } {
   const data = (respons as { data?: unknown } | null)?.data;
   const tiket: Tiket[] = Array.isArray(data) ? data : data ? [data as Tiket] : [];
-  const terkirim = tiket.filter((t) => t?.status === 'ok').length;
+  const terkirim = tiket.slice(0, jumlahPesan).filter((t) => t?.status === 'ok').length;
   return { terkirim, gagal: jumlahPesan - terkirim };
 }
 
 /** Kalimat ringkas hasil pengiriman untuk toast asisten. */
 export function ringkasHasil(hasil: HasilKirim, sebutan = 'praktikan'): string {
-  if (hasil.galat) return `Notifikasi gagal dikirim: ${hasil.galat}`;
+  if (hasil.galat) return hasil.terkirim > 0
+    ? `Expo menerima ${hasil.terkirim} notifikasi; sebagian gagal: ${hasil.galat}`
+    : `Notifikasi gagal dikirim: ${hasil.galat}`;
   if (hasil.penerima === 0) return `Belum ada ${sebutan} yang dapat diberi notifikasi.`;
   if (hasil.terkirim === hasil.penerima) {
     return hasil.penerima === 1

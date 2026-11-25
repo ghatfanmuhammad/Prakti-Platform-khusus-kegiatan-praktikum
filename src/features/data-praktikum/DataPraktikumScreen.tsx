@@ -29,10 +29,9 @@ import {
   type PracticumSession,
   type Schedule,
 } from './models';
-import { deleteRecord, saveRecord } from './repository';
-import { validateForm } from './validation';
-import { jadwalBerubah, ringkasHasil, sesiDijadwalUlang } from '../notifikasi/pesan';
-import { kirimJadwalBerubah, kirimSesiDijadwalUlang } from '../../services/notifikasiService';
+import { deleteRecord } from './repository';
+import { ringkasHasil } from '../notifikasi/pesan';
+import { simpanDenganNotifikasi } from '../notifikasi/aksi';
 
 const EMPTY: never[] = [];
 
@@ -47,33 +46,6 @@ type Editor = {
   record: PracticumRecord | null;
   classId: string | null;
 };
-/**
- * [SRS-017] Setelah jadwal atau sesi yang sudah ada berhasil diubah, beri tahu praktikan kelas.
- * Mengembalikan ringkasan pengiriman untuk ditampilkan ke asisten.
- */
-async function kirimNotifikasiPerubahan(
-  editor: Editor,
-  input: FormValues,
-  schedules: Schedule[],
-): Promise<string | undefined> {
-  if (!editor.record || !editor.classId) return;
-  const values = validateForm(editor.kind, input);
-  if (editor.kind === 'jadwal') {
-    const jadwal = { hari: values.hari, mulai: values.mulai, selesai: values.selesai, ruangan: values.ruangan };
-    if (!jadwalBerubah(editor.record as Schedule, jadwal)) return;
-    return ringkasHasil(await kirimJadwalBerubah(editor.classId, jadwal));
-  }
-  if (editor.kind === 'sesi') {
-    const sesi = { tanggal: values.tanggal, scheduleId: values.scheduleId };
-    if (!sesiDijadwalUlang(editor.record as PracticumSession, sesi)) return;
-    const jadwal = schedules.find((item) => item.id === values.scheduleId);
-    if (!jadwal) return;
-    return ringkasHasil(
-      await kirimSesiDijadwalUlang(editor.classId, { modul: values.modul, tanggal: values.tanggal }, jadwal),
-    );
-  }
-}
-
 type Confirmation = {
   title: string;
   message: string;
@@ -449,15 +421,9 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
           }}
           onSave={(values) => {
             void run(async () => {
-              const id = await saveRecord(
-                editor.kind,
-                editor.classId,
-                editor.record?.id ?? null,
-                values,
-              );
+              const { id, notifikasi } = await simpanDenganNotifikasi(editor, values, schedules);
               if (editor.kind === 'kelas' && !editor.record) setChosenClassId(id);
-              // Dikirim setelah saveRecord selesai, yaitu setelah transaksi Firestore berhasil
-              return kirimNotifikasiPerubahan(editor, values, schedules);
+              return notifikasi ? ringkasHasil(notifikasi) : undefined;
             }, 'Data berhasil disimpan.');
           }}
         />

@@ -8,18 +8,17 @@
  */
 import {
   collection,
-  deleteDoc,
   doc,
-  getDoc,
-  getDocs,
+  getDocFromServer,
+  getDocsFromServer,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   where,
 } from 'firebase/firestore';
 
 import {
-  hitungTiket,
   pesanJadwalBerubah,
   pesanSesiDijadwalUlang,
   susunPesan,
@@ -45,8 +44,10 @@ export async function simpanTokenPerangkat(uid: string, token: string, platform:
  */
 export async function hapusTokenPerangkat(uid: string, token: string) {
   const ref = tokenRef(uid);
-  const snap = await getDoc(ref);
-  if (snap.exists() && snap.data().token === token) await deleteDoc(ref);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists() && snap.data().token === token) tx.delete(ref);
+  });
 }
 
 function pesanGalat(err: unknown): string {
@@ -57,10 +58,24 @@ function pesanGalat(err: unknown): string {
   return (err as Error)?.message || 'terjadi kesalahan.';
 }
 
-async function kirimKeExpo(tokens: string[], isi: IsiNotifikasi) {
-  let terkirim = 0;
-  let gagal = 0;
-  for (const potongan of susunPesan(tokens, isi)) {
+/** Mengirim hanya token milik UID yang diminta, melanjutkan batch lain jika satu batch gagal. */
+export async function kirimKePengguna(uids: string[], isi: IsiNotifikasi): Promise<HasilKirim> {
+  const unik = [...new Set(uids.filter((uid) => typeof uid === 'string' && uid.length > 0))];
+  const hasil: HasilKirim = { penerima: unik.length, terkirim: 0, tanpaToken: 0, gagal: 0 };
+  const pemilik = new Map<string, number>();
+  const snaps = await Promise.allSettled(unik.map((uid) => getDocFromServer(tokenRef(uid))));
+  snaps.forEach((snap, index) => {
+    if (snap.status === 'rejected') {
+      hasil.gagal++;
+      hasil.galat = pesanGalat(snap.reason);
+      return;
+    }
+    const data = snap.value.data();
+    if (!data || data.uid !== unik[index] || !tokenValid(data.token)) hasil.tanpaToken++;
+    else pemilik.set(data.token, (pemilik.get(data.token) ?? 0) + 1);
+  });
+  for (const potongan of susunPesan([...pemilik.keys()], isi)) {
+    const jumlah = potongan.reduce((total, pesan) => total + pemilik.get(pesan.to)!, 0);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), BATAS_WAKTU_MS);
     try {
@@ -71,36 +86,21 @@ async function kirimKeExpo(tokens: string[], isi: IsiNotifikasi) {
         signal: controller.signal,
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        const pesan = (json as { errors?: { message?: string }[] } | null)?.errors?.[0]?.message;
-        throw new Error(pesan || `layanan notifikasi menolak permintaan (HTTP ${res.status}).`);
-      }
-      const hasil = hitungTiket(json, potongan.length);
-      terkirim += hasil.terkirim;
-      gagal += hasil.gagal;
-      if (hasil.gagal) console.warn('Sebagian push ditolak Expo:', JSON.stringify(json));
+      if (!res.ok) throw new Error(`layanan notifikasi menolak permintaan (HTTP ${res.status}).`);
+      const data = json?.data;
+      const tiket = Array.isArray(data) ? data : data ? [data] : [];
+      const diterima = potongan.reduce((total, pesan, index) =>
+        total + (tiket[index]?.status === 'ok' ? pemilik.get(pesan.to)! : 0), 0);
+      hasil.terkirim += diterima;
+      hasil.gagal += jumlah - diterima;
+      const ditolak = tiket.find((tiket: { status?: string }) => tiket?.status === 'error');
+      if (ditolak) hasil.galat = ditolak.message || ditolak.details?.error || 'layanan push menolak pesan.';
+    } catch (err) {
+      hasil.gagal += jumlah;
+      hasil.galat = pesanGalat(err);
     } finally {
       clearTimeout(timer);
     }
-  }
-  return { terkirim, gagal };
-}
-
-/** Mengirim ke sekumpulan akun berdasarkan token yang tersimpan di pushTokens/{uid}. */
-export async function kirimKePengguna(uids: string[], isi: IsiNotifikasi): Promise<HasilKirim> {
-  const unik = [...new Set(uids)];
-  const hasil: HasilKirim = { penerima: unik.length, terkirim: 0, tanpaToken: 0, gagal: 0 };
-  if (!unik.length) return hasil;
-  try {
-    const snaps = await Promise.all(unik.map((uid) => getDoc(tokenRef(uid))));
-    const tokens = snaps.map((s) => s.data()?.token).filter(tokenValid);
-    hasil.tanpaToken = unik.length - tokens.length;
-    const kirim = await kirimKeExpo(tokens, isi);
-    hasil.terkirim = Math.min(kirim.terkirim, unik.length);
-    hasil.gagal = unik.length - hasil.tanpaToken - hasil.terkirim;
-  } catch (err) {
-    console.warn('Gagal mengirim push notification:', err);
-    hasil.galat = pesanGalat(err);
   }
   return hasil;
 }
@@ -108,7 +108,7 @@ export async function kirimKePengguna(uids: string[], isi: IsiNotifikasi): Promi
 /** Mengirim ke seluruh praktikan yang terdaftar di kelas (koleksi participants). */
 export async function kirimKeKelas(classId: string, isi: IsiNotifikasi): Promise<HasilKirim> {
   try {
-    const peserta = await getDocs(query(collection(db, 'participants'), where('classId', '==', classId)));
+    const peserta = await getDocsFromServer(query(collection(db, 'participants'), where('classId', '==', classId)));
     return await kirimKePengguna(peserta.docs.map((d) => d.data().uid as string), isi);
   } catch (err) {
     console.warn('Gagal memuat peserta kelas untuk notifikasi:', err);
@@ -119,7 +119,7 @@ export async function kirimKeKelas(classId: string, isi: IsiNotifikasi): Promise
 type Jadwal = { hari: string; mulai: string; selesai: string; ruangan: string };
 
 async function kelasRingkas(classId: string) {
-  const snap = await getDoc(doc(db, 'classes', classId));
+  const snap = await getDocFromServer(doc(db, 'classes', classId));
   if (!snap.exists()) throw new Error('kelas tidak ditemukan.');
   const data = snap.data();
   return { id: classId, namaPraktikum: data.namaPraktikum as string, kode: data.kode as string };

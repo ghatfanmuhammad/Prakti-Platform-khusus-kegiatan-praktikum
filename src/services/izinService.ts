@@ -216,7 +216,7 @@ export async function periksaIzin(
   asisten: { uid: string; nama: string },
 ) {
   const docRef = doc(db, 'izin', izinId);
-  await runTransaction(db, async (tx) => {
+  return runTransaction(db, async (tx) => {
     const snap = await tx.get(docRef);
     if (!snap.exists()) {
       throw Object.assign(new Error('Pengajuan izin tidak ditemukan.'), { code: 'not-found' });
@@ -232,5 +232,6 @@ export async function periksaIzin(
       reviewedByUid: asisten.uid,
       updatedAt: serverTimestamp(),
     });
+    return { id: izinId, praktikanId: snap.data().praktikanId as string, sesiNama: snap.data().sesiNama as string, status, reviewedBy: asisten.nama };
   });
 }
