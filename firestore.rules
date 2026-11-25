@@ -351,6 +351,22 @@ service cloud.firestore {
       allow create: if isPraktikan() && catatanHadirValid(request.resource.data, id);
     }
 
+    // ---------- pushTokens/{uid}: token Expo push per akun (SRS-017) ----------
+    // Token hanya dapat diakses pemilik praktikan. Pengiriman memakai Admin SDK
+    // di fungsi server; asisten tidak mendapat akses token melalui aplikasi.
+    match /pushTokens/{uid} {
+      allow get: if isPraktikan() && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update: if isPraktikan() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'token', 'platform', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.token is string
+        && request.resource.data.token.matches('^Expo(nent)?PushToken\\[[^\\]]{1,200}\\]$')
+        && request.resource.data.platform in ['android', 'ios']
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isPraktikan() && request.auth.uid == uid;
+    }
+
     // ---------- laboratories/{labId}: lokasi laboratorium (SRS-014) ----------
     match /laboratories/{labId} {
       allow read: if isAsisten() || isPraktikan();

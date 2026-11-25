@@ -29,7 +29,9 @@ import {
   type PracticumSession,
   type Schedule,
 } from './models';
-import { deleteRecord, saveRecord } from './repository';
+import { deleteRecord } from './repository';
+import { ringkasHasil } from '../notifikasi/pesan';
+import { simpanDenganNotifikasi } from '../notifikasi/aksi';
 
 const EMPTY: never[] = [];
 
@@ -162,10 +164,10 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
     setMutationError(null);
     setSuccess(null);
     try {
-      await operation();
+      const catatan = await operation();
       setEditor(null);
       setConfirmation(null);
-      setSuccess(message);
+      setSuccess(typeof catatan === 'string' ? `${message} ${catatan}` : message);
     } catch (error) {
       setMutationError(errorMessage(error));
     } finally {
@@ -419,13 +421,9 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
           }}
           onSave={(values) => {
             void run(async () => {
-              const id = await saveRecord(
-                editor.kind,
-                editor.classId,
-                editor.record?.id ?? null,
-                values,
-              );
+              const { id, notifikasi } = await simpanDenganNotifikasi(editor, values, schedules);
               if (editor.kind === 'kelas' && !editor.record) setChosenClassId(id);
+              return notifikasi ? ringkasHasil(notifikasi) : undefined;
             }, 'Data berhasil disimpan.');
           }}
         />

@@ -8,6 +8,9 @@ import {
   type ReactNode,
 } from 'react';
 
+import type { HasilKirim } from '../features/notifikasi/pesan';
+import { bukaSesiDenganNotifikasi } from '../features/notifikasi/aksi';
+
 import { DAFTAR_ASISTEN, DAFTAR_PRAKTIKAN } from '../data';
 import { saveAttendance } from '../features/data-praktikum/attendance';
 import { usePracticumData } from '../features/data-praktikum/hooks';
@@ -30,7 +33,8 @@ interface PraktiContextValue {
   practicum: ReturnType<typeof usePracticumData> | null;
   retryPracticum: () => void;
   pesertaSesi: (sesi: Sesi) => Praktikan[];
-  bukaSesi: (sesiId: string, topik: string | null) => Promise<void>;
+  /** Mengembalikan hasil push notification ke praktikan kelas (null di mode demo). */
+  bukaSesi: (sesiId: string, topik: string | null) => Promise<HasilKirim | null>;
   tutupSesi: (sesiId: string) => Promise<void>;
   /**
    * Menyimpan presensi. `lokasi` wajib berupa hasil pemeriksaan yang berada dalam radius lab (SRS-013),
@@ -72,11 +76,11 @@ export function PraktiProvider({ children }: { children: ReactNode }) {
   const bukaSesi = async (sesiId: string, topik: string | null) => {
     if (state.demo) {
       dispatch({ type: 'BUKA_SESI', sesiId, topik, kode: buatKodeSesi() });
-      return;
+      return null;
     }
     const target = cariSesi(sesi, sesiId);
     if (!target?.classId || !target.sessionId) throw new Error('Sesi tidak ditemukan.');
-    await changeSessionStatus(target.classId, target.sessionId, 'dibuka', topik);
+    return bukaSesiDenganNotifikasi(target, topik);
   };
 
   const tutupSesi = async (sesiId: string) => {

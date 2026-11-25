@@ -15,6 +15,7 @@ import type { Sesi } from '../../types';
 import { buatIsiQr } from '../../utils/qr';
 import { presensiSesi } from '../../utils/selectors';
 import { errorMessage } from '../data-praktikum/errors';
+import { ringkasHasil, type HasilKirim } from '../notifikasi/pesan';
 import { OpenSessionSheet } from './OpenSessionSheet';
 
 /** Kontrol sesi untuk asisten: buka, lihat kode dan jumlah hadir, rekap, tutup. */
@@ -28,13 +29,22 @@ export function AsistenSessionPanel({ sesi }: { sesi: Sesi }) {
   const hadir = presensiSesi(presensi, sesi.id).length;
   const total = pesertaSesi(sesi).length;
   const pending = useRef(false);
-  const update = async (operation: () => Promise<void>, onSuccess: () => void, message: string) => {
+  const update = async (
+    operation: () => Promise<HasilKirim | null | void>,
+    onSuccess: () => void,
+    message: string,
+  ) => {
     if (pending.current) return;
     pending.current = true;
     try {
-      await operation();
+      const notifikasi = await operation();
       onSuccess();
-      toast.show(message, 'success');
+      if (notifikasi) {
+        const lengkap = !notifikasi.galat && notifikasi.terkirim === notifikasi.penerima && notifikasi.penerima > 0;
+        toast.show(`${message}. ${ringkasHasil(notifikasi)}`, lengkap ? 'success' : 'info');
+      } else {
+        toast.show(message, 'success');
+      }
     } catch (error) {
       onSuccess();
       toast.show(errorMessage(error), 'error');

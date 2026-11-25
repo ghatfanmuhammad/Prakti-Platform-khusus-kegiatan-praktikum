@@ -14,6 +14,7 @@ import { ProfileCard } from '../../components/ProfileCard';
 import { ProgressBar } from '../../components/ProgressBar';
 import { StatusPill } from '../../components/StatusPill';
 import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
+import { StatusNotifikasiCard } from '../../features/notifikasi/StatusNotifikasiCard';
 import { useCheckInFlow } from '../../features/praktikan/CheckInFlow';
 import { PraktikanSessionPanel } from '../../features/praktikan/PraktikanSessionPanel';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
@@ -56,6 +57,7 @@ export function PraktikanHomeScreen({ navigation }: Props) {
             { key: 'izin', label: 'Status Izin', icon: 'document-text-outline', onPress: () => navigation.navigate('StatusIzin') },
           ]}
         />
+        <StatusNotifikasiCard hanyaMasalah />
 
         <Card>
           <Text style={styles.cardLabel}>Kehadiran</Text>

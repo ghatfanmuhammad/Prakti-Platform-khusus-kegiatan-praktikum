@@ -145,6 +145,91 @@ after(async () => {
 const options = {
   skip: !address && 'Set FIRESTORE_EMULATOR_HOST to run real rules checks',
 };
+test('four notification events commit to Firestore and target only class members or the permit owner', options, async () => {
+  const require = createRequire(import.meta.url);
+  const load = require('./helpers/load-typescript.cjs');
+  const admin = client('owner');
+  await setDoc(doc(admin, 'pushTokens/student'), { uid: 'student', token: 'ExpoPushToken[student]', platform: 'android' });
+  await setDoc(doc(admin, 'pushTokens/other'), { uid: 'other', token: 'ExpoPushToken[outsider]', platform: 'android' });
+  const sessionRef = doc(admin, 'classes/own/sessions/notify');
+  const session = { scheduleId: 'schedule', tanggal: '2026-11-12', modul: 'Notifikasi', keterangan: '',
+    status: 'belum_dibuka', asistenId: 'assistant', topik: null, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
+  await setDoc(sessionRef, session);
+  const firebase = { db: assistant, auth: { currentUser: { uid: 'assistant' } } };
+  process.env.GCLOUD_PROJECT = projectId;
+  const serverRequire = createRequire(new URL('../functions/package.json', import.meta.url));
+  const { kirimNotifikasi } = serverRequire('./lib/functions/src/index.js');
+  const serverCall = (uid, data) => kirimNotifikasi.run({ data, auth: uid ? { uid } : undefined });
+  const api = load(new URL('../src/features/notifikasi/aksi.ts', import.meta.url).pathname, {
+    'firebase/firestore': firestore, '../../services/firebase': firebase, './firebase': firebase,
+    './aiService': {},
+    'firebase/functions': {
+      getFunctions: () => ({}),
+      httpsCallable: (_functions, name) => async (data) => {
+        assert.equal(name, 'kirimNotifikasi');
+        const result = await serverCall('assistant', data);
+        assert.equal(JSON.stringify(result).includes('PushToken'), false, 'server returns counts, never tokens');
+        return { data: result };
+      },
+    },
+  });
+  const scheduleBefore = (await getDoc(doc(admin, 'classes/own/schedules/schedule'))).data();
+  const previous = globalThis.fetch;
+  const sent = [];
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://exp.host/--/api/v2/push/send');
+    const payload = JSON.parse(options.body); sent.push(...payload);
+    return { ok: true, json: async () => ({ data: payload.map(() => ({ status: 'ok', id: 'mock-ticket' })) }) };
+  };
+  try {
+    await denied(getDoc(doc(assistant, 'pushTokens/student')));
+    await denied(getDocs(collection(assistant, 'pushTokens')));
+    for (const uid of [undefined, 'student']) {
+      await assert.rejects(serverCall(uid, { jenis: 'jadwal_berubah', classId: 'own', scheduleId: 'schedule' }),
+        (error) => error.code === 'permission-denied');
+    }
+    await assert.rejects(serverCall('assistant', { jenis: 'keputusan_izin', izinId: 'missing', uids: ['other'] }),
+      (error) => error.code === 'invalid-argument');
+    await setDoc(doc(admin, 'izin/not-reviewed-by-me'), { status: 'Disetujui', reviewedByUid: 'another', praktikanId: 'other' });
+    await assert.rejects(serverCall('assistant', { jenis: 'keputusan_izin', izinId: 'not-reviewed-by-me' }),
+      (error) => error.code === 'permission-denied');
+    const opened = await api.bukaSesiDenganNotifikasi({ id: 'own~notify', classId: 'own', sessionId: 'notify',
+      praktikum: 'Basis Data', kelas: 'OWN', tanggal: session.tanggal, mulai: '08:00', selesai: '10:00', ruang: 'Lab 1', topik: null }, null);
+    assert.equal((await getDoc(sessionRef)).data().status, 'dibuka');
+    assert.equal(opened.terkirim, 1);
+    assert.equal(sent.at(-1).data.jenis, 'sesi_dibuka');
+    const scheduleRef = doc(assistant, 'classes/own/schedules/schedule');
+    const before = (await getDoc(scheduleRef)).data();
+    const changed = await api.simpanDenganNotifikasi({ kind: 'jadwal', classId: 'own', record: { id: 'schedule', ...before } },
+      { ...before, ruangan: 'Lab Baru', labId: 'lab-new' }, []);
+    assert.equal((await getDoc(scheduleRef)).data().ruangan, 'Lab Baru');
+    assert.equal(changed.notifikasi.terkirim, 1);
+    assert.equal(sent.at(-1).data.jenis, 'jadwal_berubah');
+    for (const status of ['Disetujui', 'Ditolak']) {
+      const izinId = `notify-${status}`;
+      const permit = doc(admin, 'izin', izinId);
+      await setDoc(permit, { praktikanId: 'student', sesiNama: 'Basis Data OWN', status: 'Menunggu' });
+      const result = await api.periksaIzinDenganNotifikasi(izinId, status, { uid: 'assistant', nama: 'Asisten' });
+      assert.equal((await getDoc(permit)).data().status, status);
+      assert.equal(result.terkirim, 1);
+      assert.equal(sent.at(-1).data.izinId, izinId);
+      const count = sent.length;
+      await assert.rejects(api.periksaIzinDenganNotifikasi(izinId, status, { uid: 'assistant', nama: 'Asisten' }));
+      assert.equal(sent.length, count, 'rejected duplicate decision sends no push');
+    }
+    assert.equal(sent.length, 4);
+    assert.deepEqual(sent.map((p) => p.to), Array(4).fill('ExpoPushToken[student]'));
+    assert.deepEqual(sent.map((p) => p.title), ['Sesi praktikum dibuka', 'Jadwal praktikum berubah', 'Izin disetujui', 'Izin ditolak']);
+  } finally {
+    globalThis.fetch = previous;
+    await setDoc(doc(admin, 'classes/own/schedules/schedule'), scheduleBefore);
+    await deleteDoc(sessionRef);
+    await deleteDoc(doc(admin, 'sessionCodes/own~notify'));
+    const adminApp = serverRequire('firebase-admin/app');
+    await Promise.all(adminApp.getApps().map(adminApp.deleteApp));
+  }
+});
+
 test('anonymous cannot read data or self-create an assistant profile', options, async () => {
   await denied(getDoc(doc(anonymous, 'classes/own')));
   await denied(setDoc(doc(anonymous, 'users/new'), { role: 'asisten' }));
@@ -305,6 +390,31 @@ test('QR check-in validates the code, membership, and one check-in per session',
   await denied(updateDoc(ref, { modul: 'Changed', updatedAt: serverTimestamp() }));
 });
 
+test('push tokens are private to their student owner; assistants cannot get or list tokens (SRS-017)', options, async () => {
+  const token = (uid, value = 'ExponentPushToken[abc123]') => ({
+    uid,
+    token: value,
+    platform: 'android',
+    updatedAt: serverTimestamp(),
+  });
+  const own = doc(student, 'pushTokens/student');
+  await denied(setDoc(doc(student, 'pushTokens/other'), token('other')));
+  await denied(setDoc(own, token('student', 'bukan-token')));
+  await denied(setDoc(own, { ...token('student'), extra: true }));
+  await denied(setDoc(own, { ...token('student'), platform: 'web' }));
+  await setDoc(own, token('student'));
+  await setDoc(own, token('student', 'ExpoPushToken[xyz789]'));
+
+  assert.equal((await getDoc(own)).data().token, 'ExpoPushToken[xyz789]');
+  await denied(getDoc(doc(assistant, 'pushTokens/student')));
+  await denied(getDoc(doc(assistant, 'pushTokens/assistant')));
+  await denied(getDoc(doc(anonymous, 'pushTokens/student')));
+  await denied(getDoc(doc(client('other'), 'pushTokens/student')));
+  await denied(getDocs(collection(assistant, 'pushTokens')));
+  await denied(setDoc(doc(assistant, 'pushTokens/student'), token('student')));
+  await denied(deleteDoc(doc(assistant, 'pushTokens/student')));
+  await deleteDoc(own);
+});
 test(
   'laboratories: assistants can write, students and assistants can read, anonymous is denied',
   options,

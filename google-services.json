@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "66616717405",
+    "firebase_url": "https://prakti-f938a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "prakti-f938a",
+    "storage_bucket": "prakti-f938a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:66616717405:android:fd5912bf94d1d804d5ddb4",
+        "android_client_info": {
+          "package_name": "com.prakti.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEA7z22vM5qhSgQCFbKb6D3RSvnf0Qhnw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
