@@ -24,7 +24,7 @@ Dua kasus terpisah memanggil `saveAttendance` produksi dengan Firebase SDK nyata
 | Lab tidak cocok, akurasi >100 m, atau tanpa lokasi | Rules menolak |
 | Sesi ditutup | Repository/rules menolak; tidak ada dokumen |
 | Lab jadwal berubah sesudah pemeriksaan | Repository menolak; tidak ada dokumen |
-| Di dalam radius | Berhasil; dokumen berisi koordinat, labId, dan waktu server |
+| Di dalam radius | Berhasil; rekap berisi waktu server, koordinat/labId berada di dokumen privat terpisah |
 | Duplikat | Repository/rules menolak; dokumen asli tidak berubah |
 
 ## Verifikasi perangkat yang masih diperlukan
@@ -36,3 +36,9 @@ Rules wajib dideploy bersamaan dengan aplikasi setelah review; belum dideploy da
 ## Integrasi dengan push notification PR #16
 
 Kedua branch diuji bersama di checkout sementara tanpa mengubah main: **56/56 tes unit**, **13/13 tes emulator**, typecheck, dan export web lulus. Lint gabungan dan checkout main `f761c5e` terpisah dengan konfigurasi lint yang sama sama-sama menghasilkan 9 error bawaan. `git merge-tree` memastikan kedua fitur dapat digabung tanpa konflik.
+
+## Revisi akses data
+
+Koordinat mentah dipisahkan ke `attendanceLocations/{attendanceId}`; `attendance` tetap menjadi sumber rekap tanpa field lokasi. Keduanya wajib ditulis dalam satu transaksi dan tetap melewati validasi radius yang sama. Rules mengizinkan pemilik membaca dokumen koordinatnya sendiri, menolak asisten/pengguna lain/anonim serta semua query koleksi koordinat. Dokumen koordinat tidak dapat diubah atau dihapus klien.
+
+Tes existing diperluas, bukan dibuatkan harness baru: suite Firestore Emulator **11/11 lulus** (tanpa skip), termasuk dua jalur QR/manual, rekap asisten via get dan query, penolakan akses koordinat, atomisitas, radius, sesi tertutup, dan duplikat. Typecheck aplikasi dan lint file attendance lulus. Tes perangkat GPS/kamera dan suite unit penuh tidak diulang pada revisi akses data ini. Rules belum dideploy. Jika versi sebelumnya pernah dipakai menyimpan koordinat inline pada lingkungan uji, pindahkan/hapus field `lokasi` tersebut dengan Admin SDK sebelum memberi akses rekap pada lingkungan itu; perubahan ini tidak memigrasikan data server.

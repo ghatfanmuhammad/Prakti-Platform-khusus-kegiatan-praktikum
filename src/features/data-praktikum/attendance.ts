@@ -40,13 +40,18 @@ export async function saveAttendance(sesi: Sesi, uid: string, input: string, lok
         waktuHadir: (existing.data().waktuHadir as Timestamp).toDate().toISOString(),
       } as const;
     }
+    const waktuHadir = serverTimestamp();
     tx.set(target, {
       classId: sesi.classId,
       sesiId: sesi.id,
       sessionId: sesi.sessionId,
       praktikanId: uid,
       kode,
-      waktuHadir: serverTimestamp(),
+      waktuHadir,
+    });
+    // Raw coordinates are private; assistants only read the attendance summary.
+    tx.set(doc(db, 'attendanceLocations', target.id), {
+      waktuHadir,
       lokasi: { labId, ...lokasi.posisi },
     });
     return null;

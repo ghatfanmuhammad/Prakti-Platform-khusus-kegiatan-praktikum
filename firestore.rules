@@ -322,14 +322,16 @@ service cloud.firestore {
 
     function catatanHadirValid(d, id) {
       let sesi = sesiPath(d.classId, d.sessionId);
-      return d.keys().hasOnly(['classId', 'sessionId', 'sesiId', 'praktikanId', 'kode', 'waktuHadir', 'lokasi'])
+      let privat = getAfter(/databases/$(database)/documents/attendanceLocations/$(id)).data;
+      return d.keys().hasOnly(['classId', 'sessionId', 'sesiId', 'praktikanId', 'kode', 'waktuHadir'])
         && idValid(d.classId) && idValid(d.sessionId)
         && d.praktikanId == request.auth.uid && d.sesiId == d.classId + '~' + d.sessionId
         && id == d.sesiId + '~' + request.auth.uid
         && anggota(d.classId) && d.waktuHadir == request.time
         && get(sesi).data.status == 'dibuka'
         && d.kode == get(kodePath(d.classId, d.sessionId)).data.kode
-        && lokasiHadirValid(d.lokasi, get(sesi).data, d.classId);
+        && privat.waktuHadir == d.waktuHadir
+        && lokasiHadirValid(privat.lokasi, get(sesi).data, d.classId);
     }
 
     match /attendance/{id} {
@@ -337,6 +339,16 @@ service cloud.firestore {
         && id.split('~').size() == 3 && id.split('~')[2] == request.auth.uid);
       allow list: if isAsisten() || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
       allow create: if isPraktikan() && catatanHadirValid(request.resource.data, id);
+    }
+
+    // Coordinates are written atomically with the public attendance summary.
+    // No assistant access: Firestore cannot redact individual fields on reads.
+    match /attendanceLocations/{id} {
+      allow get: if isPraktikan() && id.split('~').size() == 3
+        && id.split('~')[2] == request.auth.uid;
+      allow create: if isPraktikan()
+        && request.resource.data.keys().hasOnly(['lokasi', 'waktuHadir'])
+        && catatanHadirValid(getAfter(/databases/$(database)/documents/attendance/$(id)).data, id);
     }
 
     // ---------- laboratories/{labId}: lokasi laboratorium (SRS-014) ----------
