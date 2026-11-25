@@ -32,3 +32,7 @@ Dua kasus terpisah memanggil `saveAttendance` produksi dengan Firebase SDK nyata
 `adb devices` tidak menemukan perangkat. Kamera QR, dialog izin lokasi, GPS sebenarnya, pengaturan izin permanen, dan perpindahan fisik melewati radius belum diuji. Gunakan development build di perangkat, akun praktikan terdaftar di kelas, sesi dibuka, dan jadwal dengan labId valid. Coba QR/manual masing-masing di dalam dan luar radius, lalu periksa dokumen kehadiran melalui akun asisten. Tutup sesi ketika proses GPS berlangsung dan ulangi presensi untuk memeriksa penolakan.
 
 Rules wajib dideploy bersamaan dengan aplikasi setelah review; belum dideploy dalam pekerjaan ini. Jadwal lama tanpa labId tidak dapat melakukan presensi sampai asisten mengaturnya. Koordinat dilaporkan perangkat; validasi radius bukan perlindungan dari GPS spoofing. Mode demo memakai lab bayangan dan tidak menulis Firestore.
+
+## Integrasi dengan push notification PR #16
+
+Kedua branch diuji bersama di checkout sementara tanpa mengubah main: **56/56 tes unit**, **13/13 tes emulator**, typecheck, dan export web lulus. Lint gabungan dan checkout main `f761c5e` terpisah dengan konfigurasi lint yang sama sama-sama menghasilkan 9 error bawaan. `git merge-tree` memastikan kedua fitur dapat digabung tanpa konflik.
