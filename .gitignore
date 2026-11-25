@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Compiled Cloud Functions
+/functions/lib/
+
 # Expo
 .expo/
 dist/
@@ -43,6 +46,3 @@ yarn-error.*
 # Local Firebase emulator logs
 firestore-debug.log
 firebase-debug.log
-
-# Compiled Cloud Functions
-/functions/lib/
