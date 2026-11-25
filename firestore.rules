@@ -303,6 +303,16 @@ service cloud.firestore {
         && getAfter(sesiPath(resource.data.classId, resource.data.sesiId)).data.asistenId == request.auth.uid;
     }
 
+    // Coordinates are written atomically with the public attendance summary.
+    // No assistant access: Firestore cannot redact individual fields on reads.
+    match /attendanceLocations/{id} {
+      allow get: if isPraktikan() && id.split('~').size() == 3
+        && id.split('~')[2] == request.auth.uid;
+      allow create: if isPraktikan()
+        && request.resource.data.keys().hasOnly(['lokasi', 'waktuHadir'])
+        && catatanHadirValid(getAfter(/databases/$(database)/documents/attendance/$(id)).data, id);
+    }
+
     function koordinatValid(d) {
       return d.lat is number && d.lat >= -90 && d.lat <= 90
         && d.lng is number && d.lng >= -180 && d.lng <= 180;
@@ -339,16 +349,6 @@ service cloud.firestore {
         && id.split('~').size() == 3 && id.split('~')[2] == request.auth.uid);
       allow list: if isAsisten() || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
       allow create: if isPraktikan() && catatanHadirValid(request.resource.data, id);
-    }
-
-    // Coordinates are written atomically with the public attendance summary.
-    // No assistant access: Firestore cannot redact individual fields on reads.
-    match /attendanceLocations/{id} {
-      allow get: if isPraktikan() && id.split('~').size() == 3
-        && id.split('~')[2] == request.auth.uid;
-      allow create: if isPraktikan()
-        && request.resource.data.keys().hasOnly(['lokasi', 'waktuHadir'])
-        && catatanHadirValid(getAfter(/databases/$(database)/documents/attendance/$(id)).data, id);
     }
 
     // ---------- laboratories/{labId}: lokasi laboratorium (SRS-014) ----------
