@@ -3,5 +3,9 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["node_modules", "MobileApp"]
+  "exclude": [
+    "node_modules",
+    "MobileApp",
+    "functions"
+  ]
 }

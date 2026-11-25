@@ -7,20 +7,12 @@ const isi = { title: 'Test', body: 'Test', data: { jenis: 'jadwal_berubah', clas
 const ref = (_db, ...parts) => ({ path: parts.join('/') });
 
 function service(tokens, participants = []) {
-  return load(filename, {
-    './firebase': { db: {} },
-    'firebase/firestore': {
-      doc: ref, collection: ref,
-      where: (field, op, value) => ({ field, op, value }),
-      query: (collection, filter) => ({ collection, filter }),
-      getDocsFromServer: async (query) => ({ docs: participants.filter((p) => p.classId === query.filter.value).map((p) => ({ data: () => p })) }),
-      getDocFromServer: async (ref) => {
-        const uid = ref.path.split('/').at(-1);
-        if (tokens[uid] instanceof Error) throw tokens[uid];
-        return { data: () => tokens[uid] && { uid, token: tokens[uid] } };
-      },
-    },
-  });
+  const { createPushSender } = load(path.resolve(__dirname, '../functions/src/transport.ts'));
+  return createPushSender(async (path) => {
+    const uid = path.split('/').at(-1);
+    if (tokens[uid] instanceof Error) throw tokens[uid];
+    return tokens[uid] && { uid, token: tokens[uid] };
+  }, async (classId) => participants.filter((p) => p.classId === classId).map((p) => p.uid));
 }
 
 test('class recipients exclude other classes, deduplicate members, skip missing tokens', async () => {
@@ -86,4 +78,31 @@ test('token cleanup uses a transaction and preserves a newer device token', asyn
   current = 'ExpoPushToken[old]';
   await api.hapusTokenPerangkat('student', current);
   assert.deepEqual(deleted, ['pushTokens/student']);
+});
+
+
+test('callable rejects unauthorized callers and client-supplied recipients before reading tokens', async () => {
+  const { dispatchNotification } = load(path.resolve(__dirname, '../functions/src/dispatcher.ts'));
+  const reads = [];
+  const io = { read: async (path) => { reads.push(path); return { role: path === 'users/assistant' ? 'asisten' : 'praktikan' }; },
+    members: async () => { assert.fail('no recipient lookup allowed'); } };
+  const request = { jenis: 'keputusan_izin', izinId: 'permit' };
+  for (const uid of [undefined, 'student']) {
+    await assert.rejects(dispatchNotification(uid, request, io), (error) => error.code === 'permission-denied');
+  }
+  await assert.rejects(dispatchNotification('assistant', { ...request, uids: ['outsider'] }, io),
+    (error) => error.code === 'invalid-argument');
+  await assert.rejects(dispatchNotification('assistant', { ...request, izinId: '../other' }, io),
+    (error) => error.code === 'invalid-argument');
+  assert.ok(reads.every((path) => path.startsWith('users/')));
+});
+
+test('upstream errors never expose tokens in the callable result', async () => {
+  const previous = global.fetch;
+  global.fetch = async () => ({ ok: true, json: async () => ({ data: [{ status: 'error', message: 'ExpoPushToken[secret] is invalid', details: { error: 'DeviceNotRegistered' } }] }) });
+  try {
+    const result = await service({ a: 'ExpoPushToken[secret]' }).kirimKePengguna(['a'], isi);
+    assert.equal(result.gagal, 1);
+    assert.equal(JSON.stringify(result).includes('secret'), false);
+  } finally { global.fetch = previous; }
 });

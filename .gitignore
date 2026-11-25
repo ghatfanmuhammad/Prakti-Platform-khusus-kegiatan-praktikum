@@ -43,3 +43,6 @@ yarn-error.*
 # Local Firebase emulator logs
 firestore-debug.log
 firebase-debug.log
+
+# Compiled Cloud Functions
+/functions/lib/

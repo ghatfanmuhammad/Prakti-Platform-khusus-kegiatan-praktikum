@@ -15,7 +15,7 @@ function setup(failed = false) {
       await commit(); return { id, status, praktikanId: 'canonical-owner', sesiNama: 'Basis Data', reviewedBy: asisten.nama };
     } },
     '../../services/notifikasiService': {
-      kirimKeKelas: send('class'), kirimKePengguna: send('owner'),
+      kirimSesiDibuka: send('class'), kirimKeputusanIzin: send('owner'),
       kirimJadwalBerubah: send('schedule'), kirimSesiDijadwalUlang: send('reschedule'),
     },
   });
@@ -31,12 +31,11 @@ test('opening a session sends to its class only after commit; failed commit send
   assert.deepEqual(failed.calls, ['commit']);
 });
 
-for (const status of ['Disetujui', 'Ditolak']) test(`${status} notifies only canonical applicant after commit`, async () => {
+for (const status of ['Disetujui', 'Ditolak']) test(`${status} delegates recipient resolution to the server after commit`, async () => {
   const { api, calls } = setup();
   await api.periksaIzinDenganNotifikasi('permit', status, { uid: 'assistant', nama: 'Asisten' });
   assert.equal(calls[0], 'commit');
-  assert.deepEqual(calls[1][1], ['canonical-owner']);
-  assert.equal(calls[1][2].title, status === 'Disetujui' ? 'Izin disetujui' : 'Izin ditolak');
+  assert.equal(calls[1][1], 'permit');
   const failed = setup(true);
   await assert.rejects(failed.api.periksaIzinDenganNotifikasi('permit', status, { uid: 'assistant', nama: 'Asisten' }));
   assert.deepEqual(failed.calls, ['commit']);

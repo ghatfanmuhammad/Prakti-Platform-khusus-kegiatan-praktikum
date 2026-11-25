@@ -147,9 +147,22 @@ test('four notification events commit to Firestore and target only class members
     status: 'belum_dibuka', asistenId: 'assistant', topik: null, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
   await setDoc(sessionRef, session);
   const firebase = { db: assistant, auth: { currentUser: { uid: 'assistant' } } };
+  process.env.GCLOUD_PROJECT = projectId;
+  const serverRequire = createRequire(new URL('../functions/package.json', import.meta.url));
+  const { kirimNotifikasi } = serverRequire('./lib/functions/src/index.js');
+  const serverCall = (uid, data) => kirimNotifikasi.run({ data, auth: uid ? { uid } : undefined });
   const api = load(new URL('../src/features/notifikasi/aksi.ts', import.meta.url).pathname, {
     'firebase/firestore': firestore, '../../services/firebase': firebase, './firebase': firebase,
     './aiService': {},
+    'firebase/functions': {
+      getFunctions: () => ({}),
+      httpsCallable: (_functions, name) => async (data) => {
+        assert.equal(name, 'kirimNotifikasi');
+        const result = await serverCall('assistant', data);
+        assert.equal(JSON.stringify(result).includes('PushToken'), false, 'server returns counts, never tokens');
+        return { data: result };
+      },
+    },
   });
   const scheduleBefore = (await getDoc(doc(admin, 'classes/own/schedules/schedule'))).data();
   const previous = globalThis.fetch;
@@ -160,6 +173,17 @@ test('four notification events commit to Firestore and target only class members
     return { ok: true, json: async () => ({ data: payload.map(() => ({ status: 'ok', id: 'mock-ticket' })) }) };
   };
   try {
+    await denied(getDoc(doc(assistant, 'pushTokens/student')));
+    await denied(getDocs(collection(assistant, 'pushTokens')));
+    for (const uid of [undefined, 'student']) {
+      await assert.rejects(serverCall(uid, { jenis: 'jadwal_berubah', classId: 'own', scheduleId: 'schedule' }),
+        (error) => error.code === 'permission-denied');
+    }
+    await assert.rejects(serverCall('assistant', { jenis: 'keputusan_izin', izinId: 'missing', uids: ['other'] }),
+      (error) => error.code === 'invalid-argument');
+    await setDoc(doc(admin, 'izin/not-reviewed-by-me'), { status: 'Disetujui', reviewedByUid: 'another', praktikanId: 'other' });
+    await assert.rejects(serverCall('assistant', { jenis: 'keputusan_izin', izinId: 'not-reviewed-by-me' }),
+      (error) => error.code === 'permission-denied');
     const opened = await api.bukaSesiDenganNotifikasi({ id: 'own~notify', classId: 'own', sessionId: 'notify',
       praktikum: 'Basis Data', kelas: 'OWN', tanggal: session.tanggal, mulai: '08:00', selesai: '10:00', ruang: 'Lab 1', topik: null }, null);
     assert.equal((await getDoc(sessionRef)).data().status, 'dibuka');
@@ -192,6 +216,8 @@ test('four notification events commit to Firestore and target only class members
     await setDoc(doc(admin, 'classes/own/schedules/schedule'), scheduleBefore);
     await deleteDoc(sessionRef);
     await deleteDoc(doc(admin, 'sessionCodes/own~notify'));
+    const adminApp = serverRequire('firebase-admin/app');
+    await Promise.all(adminApp.getApps().map(adminApp.deleteApp));
   }
 });
 
@@ -353,7 +379,7 @@ test('QR check-in validates the code, membership, and one check-in per session',
   await denied(updateDoc(ref, { modul: 'Changed', updatedAt: serverTimestamp() }));
 });
 
-test('push tokens are owned by their user and readable by assistants (SRS-017)', options, async () => {
+test('push tokens are private to their student owner; assistants cannot get or list tokens (SRS-017)', options, async () => {
   const token = (uid, value = 'ExponentPushToken[abc123]') => ({
     uid,
     token: value,
@@ -368,7 +394,10 @@ test('push tokens are owned by their user and readable by assistants (SRS-017)',
   await setDoc(own, token('student'));
   await setDoc(own, token('student', 'ExpoPushToken[xyz789]'));
 
-  assert.equal((await getDoc(doc(assistant, 'pushTokens/student'))).data().token, 'ExpoPushToken[xyz789]');
+  assert.equal((await getDoc(own)).data().token, 'ExpoPushToken[xyz789]');
+  await denied(getDoc(doc(assistant, 'pushTokens/student')));
+  await denied(getDoc(doc(assistant, 'pushTokens/assistant')));
+  await denied(getDoc(doc(anonymous, 'pushTokens/student')));
   await denied(getDoc(doc(client('other'), 'pushTokens/student')));
   await denied(getDocs(collection(assistant, 'pushTokens')));
   await denied(setDoc(doc(assistant, 'pushTokens/student'), token('student')));
