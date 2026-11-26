@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,7 +21,7 @@ import { useToast } from '../../components/Toast';
 import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
 import { daftarPilihanSesiIzin, namaSesiIzin } from '../../features/izin/aturanIzin';
-import type { AppStackParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import {
   ALASAN_MAX,
   ajukanIzin,
@@ -34,7 +33,7 @@ import {
 import { colors, radius, spacing, typography } from '../../theme';
 import { formatTanggal } from '../../utils/date';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'AjukanIzin'>;
+type Props = ScreenProps<'AjukanIzin'>;
 
 /** Klasifikasi AI dibatasi 10 detik, sisanya untuk menyimpan ke Firestore. */
 const BATAS_WAKTU_KIRIM = 25_000;

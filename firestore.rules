@@ -24,25 +24,25 @@ service cloud.firestore {
       return get(profilPath()).data.role;
     }
 
-    function isAsisten() {
-      return punyaProfil() && peran() == 'asisten';
-    }
+    function isAslab() { return punyaProfil() && peran() == 'aslab'; }
+    function isAsprak() { return punyaProfil() && peran() == 'asprak'; }
 
     function isPraktikan() {
       return punyaProfil() && peran() == 'praktikan';
     }
 
-    // Email asisten resmi didaftarkan koordinator lewat Firebase Console
-    // sebagai dokumen asisten_terdaftar/{email-huruf-kecil}.
-    function emailAsistenTerdaftar() {
-      return request.auth.token.email != null
-        && exists(/databases/$(database)/documents/asisten_terdaftar/$(request.auth.token.email.lower()));
+    function stafTerdaftar(role) {
+      let email = request.auth.token.email.lower();
+      let path = /databases/$(database)/documents/staf_terdaftar/$(email);
+      return role in ['aslab', 'asprak'] && exists(path)
+        && get(path).data.email == email && get(path).data.role == role;
     }
 
     // ---------- users/{uid}: profil & peran ----------
     match /users/{uid} {
-      // Pemilik membaca profilnya sendiri; asisten boleh melihat profil (mis. data praktikan)
-      allow read: if signedIn() && (request.auth.uid == uid || isAsisten());
+      // Aslab dapat lookup UID untuk validasi peserta/penugasan; tidak boleh listing seluruh profil.
+      allow get: if signedIn() && (request.auth.uid == uid || isAslab());
+      allow list: if false;
 
       allow create: if signedIn()
         && request.auth.uid == uid
@@ -53,7 +53,7 @@ service cloud.firestore {
         && request.resource.data.nimOrCode is string && request.resource.data.nimOrCode.size() > 0
         && request.resource.data.createdAt == request.time
         && (request.resource.data.role == 'praktikan'
-            || (request.resource.data.role == 'asisten' && emailAsistenTerdaftar()));
+            || stafTerdaftar(request.resource.data.role));
 
       // Peran, email, dan uid tidak boleh diubah dari aplikasi
       allow update: if signedIn()
@@ -68,6 +68,8 @@ service cloud.firestore {
     match /asisten_terdaftar/{email} {
       allow read, write: if false;
     }
+
+    match /staf_terdaftar/{email} { allow read, write: if false; }
 
     // ---------- Data praktikum (SRS-008) ----------
     function kelasPath(kelas) {
@@ -98,9 +100,18 @@ service cloud.firestore {
         && get(pesertaPath(id)).data.uid == request.auth.uid;
     }
 
-    function bolehBacaKelas(kelas) {
-      return isAsisten() || anggota(kelas);
+    function pemilikKelas(kelas) {
+      return isAslab() && get(kelasPath(kelas)).data.aslabUid == request.auth.uid;
     }
+    function mengampu(kelas) {
+      let id = kelas + '~' + request.auth.uid;
+      let path = /databases/$(database)/documents/pengampu/$(id);
+      return isAsprak() && exists(path) && get(path).data.classId == kelas && get(path).data.uid == request.auth.uid;
+    }
+    function stafKelas(kelas) { return pemilikKelas(kelas) || mengampu(kelas); }
+    function bolehBacaKelas(kelas) { return stafKelas(kelas) || anggota(kelas); }
+    function kelasIzin(data) { return data.sesiId.split('~')[0]; }
+
 
     function idValid(id) {
       return id is string && id.matches('^[A-Za-z0-9_-]{1,128}$');
@@ -120,9 +131,9 @@ service cloud.firestore {
 
     function kelasValid(d) {
       return d.keys().hasOnly([
-          'kode', 'namaPraktikum', 'participantCount', 'scheduleCount', 'sessionCount',
+          'aslabUid', 'kode', 'namaPraktikum', 'participantCount', 'scheduleCount', 'sessionCount',
           'createdAt', 'updatedAt', 'lastChildId'])
-        && teksValid(d.kode, 40) && teksValid(d.namaPraktikum, 120)
+        && idValid(d.aslabUid) && teksValid(d.kode, 40) && teksValid(d.namaPraktikum, 120)
         && jumlahValid(d.participantCount) && jumlahValid(d.scheduleCount)
         && jumlahValid(d.sessionCount) && waktuTulisValid(d);
     }
@@ -235,40 +246,55 @@ service cloud.firestore {
 
     match /classes/{kelas} {
       allow get: if bolehBacaKelas(kelas);
-      allow list: if isAsisten();
-      allow create: if isAsisten() && idValid(kelas) && kelasValid(request.resource.data)
+      allow list: if isAslab() && resource.data.aslabUid == request.auth.uid;
+      allow create: if isAslab() && request.resource.data.aslabUid == request.auth.uid && idValid(kelas) && kelasValid(request.resource.data)
         && !('lastChildId' in request.resource.data) && request.resource.data.createdAt == request.time
         && request.resource.data.participantCount == 0 && request.resource.data.scheduleCount == 0
         && request.resource.data.sessionCount == 0;
-      allow update: if isAsisten() && kelasValid(request.resource.data) && perubahanKelasValid(kelas);
-      allow delete: if isAsisten() && resource.data.participantCount == 0
+      allow update: if kelasValid(request.resource.data) && perubahanKelasValid(kelas)
+        && request.resource.data.aslabUid == resource.data.aslabUid
+        && (pemilikKelas(kelas) || (mengampu(kelas)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['scheduleCount', 'sessionCount', 'lastChildId', 'updatedAt'])));
+      allow delete: if pemilikKelas(kelas) && resource.data.participantCount == 0
         && resource.data.scheduleCount == 0 && resource.data.sessionCount == 0;
 
       match /schedules/{jadwal} {
         allow read: if exists(kelasPath(kelas)) && bolehBacaKelas(kelas);
-        allow create: if isAsisten() && idValid(jadwal) && jadwalValid(request.resource.data)
+        allow create: if mengampu(kelas) && idValid(jadwal) && jadwalValid(request.resource.data)
           && !('lastSessionId' in request.resource.data)
           && request.resource.data.createdAt == request.time && request.resource.data.sessionCount == 0
           && jumlahKelasBerubah(kelas, 'scheduleCount', jadwal, 1);
-        allow update: if isAsisten() && existsAfter(kelasPath(kelas))
+        allow update: if mengampu(kelas) && existsAfter(kelasPath(kelas))
           && jadwalValid(request.resource.data) && perubahanJadwalValid(kelas, jadwal);
-        allow delete: if isAsisten() && resource.data.sessionCount == 0
+        allow delete: if mengampu(kelas) && resource.data.sessionCount == 0
           && jumlahKelasBerubah(kelas, 'scheduleCount', jadwal, -1);
       }
 
       match /sessions/{sesi} {
         allow read: if exists(kelasPath(kelas)) && bolehBacaKelas(kelas);
-        allow create: if isAsisten() && idValid(sesi) && sesiValid(request.resource.data, kelas)
+        allow create: if mengampu(kelas) && idValid(sesi) && sesiValid(request.resource.data, kelas)
           && request.resource.data.asistenId == request.auth.uid && request.resource.data.topik == null
           && request.resource.data.createdAt == request.time && request.resource.data.status == 'belum_dibuka'
           && jumlahKelasBerubah(kelas, 'sessionCount', sesi, 1)
           && jumlahJadwalBerubah(kelas, request.resource.data.scheduleId, sesi, 1);
-        allow update: if isAsisten() && existsAfter(kelasPath(kelas))
+        allow update: if mengampu(kelas) && existsAfter(kelasPath(kelas))
           && sesiValid(request.resource.data, kelas) && (ubahRencanaSesi(kelas, sesi) || ubahStatusSesi(kelas, sesi));
-        allow delete: if isAsisten() && resource.data.status == 'belum_dibuka'
+        allow delete: if mengampu(kelas) && resource.data.status == 'belum_dibuka'
           && jumlahKelasBerubah(kelas, 'sessionCount', sesi, -1)
           && jumlahJadwalBerubah(kelas, resource.data.scheduleId, sesi, -1);
       }
+    }
+
+    match /pengampu/{id} {
+      allow get: if pemilikKelas(resource.data.classId) || (isAsprak() && resource.data.uid == request.auth.uid);
+      allow list: if pemilikKelas(resource.data.classId) || (isAsprak() && resource.data.uid == request.auth.uid);
+      allow create: if pemilikKelas(request.resource.data.classId)
+        && request.resource.data.keys().hasOnly(['classId', 'uid', 'createdAt'])
+        && idValid(request.resource.data.classId) && idValid(request.resource.data.uid)
+        && id == request.resource.data.classId + '~' + request.resource.data.uid
+        && get(/databases/$(database)/documents/users/$(request.resource.data.uid)).data.role == 'asprak'
+        && request.resource.data.createdAt == request.time;
+      allow delete: if pemilikKelas(resource.data.classId);
     }
 
     function pesertaValid(d, id) {
@@ -279,26 +305,26 @@ service cloud.firestore {
     }
 
     match /participants/{id} {
-      allow read: if isAsisten() || (isPraktikan() && resource.data.uid == request.auth.uid);
-      allow create: if isAsisten() && pesertaValid(request.resource.data, id)
+      allow read: if stafKelas(resource.data.classId) || (isPraktikan() && resource.data.uid == request.auth.uid);
+      allow create: if pemilikKelas(request.resource.data.classId) && pesertaValid(request.resource.data, id)
         && request.resource.data.createdAt == request.time
         && jumlahKelasBerubah(request.resource.data.classId, 'participantCount', id, 1);
-      allow update: if isAsisten() && pesertaValid(request.resource.data, id)
+      allow update: if pemilikKelas(request.resource.data.classId) && pesertaValid(request.resource.data, id)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nama', 'nim', 'updatedAt']);
-      allow delete: if isAsisten() && jumlahKelasBerubah(resource.data.classId, 'participantCount', id, -1);
+      allow delete: if pemilikKelas(resource.data.classId) && jumlahKelasBerubah(resource.data.classId, 'participantCount', id, -1);
     }
 
     // Compatibility with the existing QR check-in workflow.
     match /sessionCodes/{id} {
-      allow read: if isAsisten();
-      allow create: if isAsisten() && request.resource.data.keys().hasOnly(['classId', 'sesiId', 'kode'])
+      allow read: if mengampu(resource.data.classId);
+      allow create: if mengampu(request.resource.data.classId) && request.resource.data.keys().hasOnly(['classId', 'sesiId', 'kode'])
         && idValid(request.resource.data.sesiId) && idValid(request.resource.data.classId)
         && id == request.resource.data.classId + '~' + request.resource.data.sesiId
         && request.resource.data.kode is string && request.resource.data.kode.matches('^[0-9]{4}$')
         && get(sesiPath(request.resource.data.classId, request.resource.data.sesiId)).data.status == 'belum_dibuka'
         && getAfter(sesiPath(request.resource.data.classId, request.resource.data.sesiId)).data.status == 'dibuka'
         && getAfter(sesiPath(request.resource.data.classId, request.resource.data.sesiId)).data.asistenId == request.auth.uid;
-      allow delete: if isAsisten()
+      allow delete: if mengampu(resource.data.classId)
         && getAfter(sesiPath(resource.data.classId, resource.data.sesiId)).data.status == 'ditutup'
         && getAfter(sesiPath(resource.data.classId, resource.data.sesiId)).data.asistenId == request.auth.uid;
     }
@@ -345,9 +371,9 @@ service cloud.firestore {
     }
 
     match /attendance/{id} {
-      allow get: if isAsisten() || (isPraktikan()
+      allow get: if (resource != null && stafKelas(resource.data.classId)) || (isPraktikan()
         && id.split('~').size() == 3 && id.split('~')[2] == request.auth.uid);
-      allow list: if isAsisten() || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
+      allow list: if stafKelas(resource.data.classId) || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
       allow create: if isPraktikan() && catatanHadirValid(request.resource.data, id);
     }
 
@@ -369,8 +395,9 @@ service cloud.firestore {
 
     // ---------- laboratories/{labId}: lokasi laboratorium (SRS-014) ----------
     match /laboratories/{labId} {
-      allow read: if isAsisten() || isPraktikan();
-      allow write: if isAsisten();
+      allow read: if isAslab() || isAsprak() || isPraktikan();
+      // SRS-014 needs a classId link before lab writes can use classes.aslabUid.
+      allow write: if false;
     }
 
     // ---------- izin/{izinId}: pengajuan izin (SRS-010) & pemeriksaan (SRS-011) ----------
@@ -392,8 +419,8 @@ service cloud.firestore {
               || (d.statusAI == 'gagal' && d.kategoriAI == null));
       }
 
-      // Asisten melihat semua; praktikan hanya izin miliknya
-      allow read: if isAsisten()
+      // Staf hanya kelas yang menjadi lingkupnya; praktikan hanya izin miliknya
+      allow read: if stafKelas(kelasIzin(resource.data))
         || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
 
       // Praktikan mengajukan izin atas nama dirinya sendiri, status awal Menunggu
@@ -403,7 +430,9 @@ service cloud.firestore {
              'alasan', 'status', 'createdAt', 'updatedAt'].concat(fieldAI()))
         && request.resource.data.keys().hasAll(fieldAI())
         && request.resource.data.praktikanId == request.auth.uid
-        && request.resource.data.sesiId is string && request.resource.data.sesiId.size() > 0
+        && request.resource.data.sesiId is string && request.resource.data.sesiId.split('~').size() == 2
+        && anggota(kelasIzin(request.resource.data))
+        && exists(sesiPath(kelasIzin(request.resource.data), request.resource.data.sesiId.split('~')[1]))
         && request.resource.data.alasan is string
         && request.resource.data.alasan.trim().size() >= 10
         && request.resource.data.alasan.size() <= 500
@@ -414,12 +443,12 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
 
       // Asisten mengulang klasifikasi AI: hanya field AI yang boleh berubah
-      allow update: if isAsisten()
+      allow update: if mengampu(kelasIzin(resource.data))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(fieldAI())
         && hasilAIValid(request.resource.data);
 
       // Hanya asisten yang memutuskan, hanya sekali (dari Menunggu), dan tercatat UID-nya
-      allow update: if isAsisten()
+      allow update: if mengampu(kelasIzin(resource.data))
         && resource.data.status == 'Menunggu'
         && request.resource.data.status in ['Disetujui', 'Ditolak']
         && request.resource.data.reviewedByUid == request.auth.uid

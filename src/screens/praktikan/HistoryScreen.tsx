@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '../../components/AppHeader';
@@ -7,12 +6,12 @@ import { EmptyState } from '../../components/EmptyState';
 import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
 import { useStatusPresensi } from '../../features/presensi/useStatusPresensi';
-import type { AppStackParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import { cardShadow, colors, radius, spacing, typography } from '../../theme';
 import { formatJamDetik, formatTanggal } from '../../utils/date';
 import { riwayatPraktikan } from '../../utils/selectors';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'History'>;
+type Props = ScreenProps<'History'>;
 
 export function HistoryScreen({ navigation }: Props) {
   const praktikan = useCurrentPraktikan();

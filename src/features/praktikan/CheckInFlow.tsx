@@ -1,9 +1,8 @@
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 import { useToast } from '../../components/Toast';
 import { useCurrentPraktikan, usePrakti } from '../../context/PraktiContext';
-import type { AppStackParamList } from '../../navigation/types';
+import { useAppNavigation } from '../../navigation/useAppNavigation';
 import type { Sesi } from '../../types';
 import { cariPresensi, urutkanSesi } from '../../utils/selectors';
 import { SessionPickerSheet } from './SessionPickerSheet';
@@ -26,7 +25,7 @@ export function CheckInFlowProvider({ children }: { children: ReactNode }) {
   const praktikan = useCurrentPraktikan();
   const { sesi, presensi, practicum } = usePrakti();
   const toast = useToast();
-  const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const navigation = useAppNavigation();
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const mulaiUntuk = useCallback(

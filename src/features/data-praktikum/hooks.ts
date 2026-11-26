@@ -176,35 +176,50 @@ function useClassRecords(
 type CodeRecord = { id: string; kode: string };
 type AttendanceRecord = { id: string; sesiId: string; praktikanId: string; waktuHadir: Timestamp };
 
+function useScopedCollection<T extends { id: string }>(name: string, key: string, enabled: boolean, retry: number): LiveData<T[]> {
+  const [result, setResult] = useState<{ key: string; retry: number; state: LiveData<T[]> }>();
+  useEffect(() => {
+    if (!enabled || !key) return;
+    const rows = new Map<string, T[]>();
+    const failures = new Map<string, string>();
+    let active = true;
+    const ids = key.split(',');
+    const publish = () => {
+      if (!active) return;
+      const error = failures.values().next().value ?? null;
+      setResult({ key, retry, state: live(error ? [] : [...rows.values()].flat(), !error && rows.size !== ids.length, error) });
+    };
+    const stops = ids.map((classId) => watchCollection<T>(query(collection(db, name), where('classId', '==', classId)),
+      (data) => { rows.set(classId, data); failures.delete(classId); publish(); },
+      (error) => { failures.set(classId, error); rows.delete(classId); publish(); }));
+    return () => { active = false; stops.forEach((stop) => stop()); };
+  }, [name, key, enabled, retry]);
+  if (!enabled || !key) return live([]);
+  return result?.key === key && result.retry === retry ? result.state : live([], true);
+}
+
 export function usePracticumData(identity: Identity | null, retry: number) {
   const uid = identity?.uid;
   const student = identity?.role === 'praktikan';
-  const assistant = identity?.role === 'asisten';
-  const sources = useMemo(() => {
-    if (!uid) return { classes: null, participants: null, codes: null, attendance: null };
-    const participants = collection(db, 'participants');
-    const attendance = collection(db, 'attendance');
-    return {
-      classes: assistant ? collection(db, 'classes') : null,
-      participants: student ? query(participants, where('uid', '==', uid)) : participants,
-      codes: assistant ? collection(db, 'sessionCodes') : null,
-      attendance: student ? query(attendance, where('praktikanId', '==', uid)) : attendance,
-    };
-  }, [assistant, student, uid]);
-
+  const owner = identity?.role === 'aslab';
+  const assistant = identity?.role === 'asprak';
+  const sources = useMemo(() => ({
+    classes: uid && owner ? query(collection(db, 'classes'), where('aslabUid', '==', uid)) : null,
+    memberships: uid && !owner ? query(collection(db, student ? 'participants' : 'pengampu'), where('uid', '==', uid)) : null,
+    attendance: uid && student ? query(collection(db, 'attendance'), where('praktikanId', '==', uid)) : null,
+  }), [uid, owner, student]);
   const allClasses = useLiveCollection<PracticumClass>(sources.classes, retry);
-  const participants = useLiveCollection<Participant>(sources.participants, retry);
-  const codes = useLiveCollection<CodeRecord>(sources.codes, retry);
-  const attendance = useLiveCollection<AttendanceRecord>(sources.attendance, retry);
-  const classIds = student ? participants.data.map((p) => p.classId) : allClasses.data.map((c) => c.id);
+  const memberships = useLiveCollection<Participant>(sources.memberships, retry);
+  const classIds = owner ? allClasses.data.map((c) => c.id) : memberships.data.map((p) => p.classId);
   const classKey = [...new Set(classIds)].sort().join(',');
-  const tree = useClassRecords(classKey, uid, student, retry);
-  const classes = useMemo(
-    () => student
-      ? Object.values(tree.data).flatMap(({ klass }) => klass ? [klass] : [])
-      : allClasses.data,
-    [student, tree.data, allClasses.data],
-  );
+  const tree = useClassRecords(classKey, uid, !owner, retry);
+  const roster = useScopedCollection<Participant>('participants', classKey, !!uid && !student, retry);
+  const participants = student ? memberships : roster;
+  const codes = useScopedCollection<CodeRecord>('sessionCodes', classKey, assistant, retry);
+  const ownAttendance = useLiveCollection<AttendanceRecord>(sources.attendance, retry);
+  const classAttendance = useScopedCollection<AttendanceRecord>('attendance', classKey, !!uid && !student, retry);
+  const attendance = student ? ownAttendance : classAttendance;
+  const classes = useMemo(() => owner ? allClasses.data : Object.values(tree.data).flatMap(({ klass }) => klass ? [klass] : []), [owner, allClasses.data, tree.data]);
   const sesi = useMemo<Sesi[]>(() => {
     const codeById = new Map(codes.data.map((code) => [code.id, code.kode]));
     return classes.flatMap((klass) => {
@@ -242,10 +257,10 @@ export function usePracticumData(identity: Identity | null, retry: number) {
     [attendance.data],
   );
 
-  const classLoading = allClasses.loading || (student && participants.loading);
-  const classError = allClasses.error ?? (student ? participants.error : null);
+  const classLoading = allClasses.loading || (!owner && memberships.loading);
+  const classError = allClasses.error ?? (!owner ? memberships.error : null);
   return {
-    classes: live(classes, classLoading || (student && tree.loading), classError ?? (student ? tree.error : null)),
+    classes: live(classes, classLoading || (!owner && tree.loading), classError ?? (!owner ? tree.error : null)),
     participants,
     tree,
     sesi,

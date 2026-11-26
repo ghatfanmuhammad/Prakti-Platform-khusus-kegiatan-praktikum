@@ -48,13 +48,15 @@
         {
           "locationWhenInUsePermission": "Izinkan PRAKTI memakai lokasimu untuk memastikan kamu berada di laboratorium saat presensi."
         }
-      ]
+      ],
+      "expo-router"
     ],
     "extra": {
       "eas": {
         "projectId": "85652659-0019-48aa-bd88-b1dedb34f7ba"
       }
     },
-    "owner": "ghatfan"
+    "owner": "ghatfan",
+    "scheme": "prakti"
   }
 }

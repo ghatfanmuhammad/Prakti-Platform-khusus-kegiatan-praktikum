@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ROLE_LABELS } from '../../features/auth/roles';
 import { usePrakti } from '../../context/PraktiContext';
 import {
   formatAuthError,
@@ -60,7 +61,7 @@ export function AuthScreen({ onBypassDemo }: Props) {
       }
       if (!nimOrCode.trim()) {
         setErrorMessage(
-          role === 'praktikan' ? 'NIM wajib diisi.' : 'Kode Asisten wajib diisi.',
+          role === 'praktikan' ? 'NIM wajib diisi.' : 'Kode Staf wajib diisi.',
         );
         return;
       }
@@ -139,40 +140,12 @@ export function AuthScreen({ onBypassDemo }: Props) {
               {/* Pilihan Peran */}
               <Text style={styles.fieldLabel}>Peran Pengguna:</Text>
               <View style={styles.roleToggleRow}>
-                <Pressable
-                  style={[styles.roleBtn, role === 'praktikan' && styles.roleBtnActive]}
-                  onPress={() => setRole('praktikan')}
-                >
-                  <Ionicons
-                    name="person-outline"
-                    size={18}
-                    color={role === 'praktikan' ? colors.surface : colors.navy}
-                  />
-                  <Text
-                    style={[
-                      styles.roleBtnText,
-                      role === 'praktikan' && styles.roleBtnTextActive,
-                    ]}
-                  >
-                    Praktikan
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.roleBtn, role === 'asisten' && styles.roleBtnActive]}
-                  onPress={() => setRole('asisten')}
-                >
-                  <Ionicons
-                    name="school-outline"
-                    size={18}
-                    color={role === 'asisten' ? colors.surface : colors.navy}
-                  />
-                  <Text
-                    style={[styles.roleBtnText, role === 'asisten' && styles.roleBtnTextActive]}
-                  >
-                    Asisten
-                  </Text>
-                </Pressable>
+                {(['praktikan', 'asprak', 'aslab'] as const).map((value) => (
+                  <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: role === value }}
+                    style={[styles.roleBtn, role === value && styles.roleBtnActive]} onPress={() => setRole(value)}>
+                    <Text style={[styles.roleBtnText, role === value && styles.roleBtnTextActive]}>{ROLE_LABELS[value]}</Text>
+                  </Pressable>
+                ))}
               </View>
 
               {/* Input Nama */}
@@ -187,7 +160,7 @@ export function AuthScreen({ onBypassDemo }: Props) {
 
               {/* Input NIM / Kode */}
               <Text style={styles.fieldLabel}>
-                {role === 'praktikan' ? 'Nomor Induk Mahasiswa (NIM):' : 'Kode Asisten:'}
+                {role === 'praktikan' ? 'Nomor Induk Mahasiswa (NIM):' : 'Kode Staf:'}
               </Text>
               <TextInput
                 style={styles.input}

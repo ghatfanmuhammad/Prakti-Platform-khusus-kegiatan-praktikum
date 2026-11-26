@@ -8,15 +8,16 @@ import {
 } from 'firebase/auth';
 import {
   doc,
-  getDoc,
+  getDocFromServer,
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
 
-import type { CurrentUser } from '../types';
+import type { CurrentUser, Role } from '../types';
+import { isRole, ROLE_LABELS } from '../features/auth/roles';
 import { auth, db } from './firebase';
 
-export type UserRole = 'asisten' | 'praktikan';
+export type UserRole = Role;
 
 export interface UserProfile {
   uid: string;
@@ -61,9 +62,11 @@ export function formatAuthError(errorCode: string, context?: { role?: UserRole }
     case 'unavailable':
       return 'Gagal terhubung ke internet. Periksa koneksi Anda.';
     case 'permission-denied':
-      return context?.role === 'asisten'
-        ? 'Email ini belum terdaftar sebagai asisten. Hubungi koordinator praktikum.'
+      return context?.role && context.role !== 'praktikan'
+        ? `Email dan peran ${ROLE_LABELS[context.role]} tidak cocok dengan daftar staf. Hubungi koordinator.`
         : 'Akses ditolak. Data pendaftaran tidak valid.';
+    case 'app/role-needs-migration':
+      return 'Peran akun lama belum dimigrasikan. Hubungi koordinator; akun dan data Anda tetap tersimpan.';
     case PROFILE_NOT_FOUND:
       return 'Profil akun tidak ditemukan. Silakan daftar ulang atau hubungi koordinator.';
     default:
@@ -75,8 +78,9 @@ export function formatAuthError(errorCode: string, context?: { role?: UserRole }
  * Mengubah profil Firestore menjadi bentuk user yang dipakai state aplikasi.
  */
 export function toCurrentUser(profile: UserProfile): CurrentUser {
-  if (profile.role === 'asisten') {
-    return { role: 'asisten', asisten: { id: profile.uid, nama: profile.name } };
+  if (!isRole(profile.role)) throw new AppAuthError('app/role-needs-migration', 'Peran akun belum didukung.');
+  if (profile.role !== 'praktikan') {
+    return { role: profile.role, asisten: { id: profile.uid, nama: profile.name } };
   }
   return {
     role: 'praktikan',
@@ -85,8 +89,7 @@ export function toCurrentUser(profile: UserProfile): CurrentUser {
 }
 
 /**
- * Registrasi akun baru dengan role asisten / praktikan (SRS-007).
- * Role asisten hanya diterima Security Rules bila email ada di koleksi `asisten_terdaftar`.
+ * Registrasi SRS-019. Role staf harus cocok dengan email dan role di staf_terdaftar; rules adalah otoritas.
  */
 export async function registerUser(
   email: string,
@@ -95,7 +98,8 @@ export async function registerUser(
   role: UserRole,
   nimOrCode: string,
 ): Promise<UserProfile> {
-  const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+  if (!isRole(role)) throw new AppAuthError('permission-denied', 'Peran tidak valid.');
+  const cred = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), pass);
   const uid = cred.user.uid;
 
   const profile: UserProfile = {
@@ -135,6 +139,10 @@ export async function loginUser(email: string, pass: string): Promise<UserProfil
     throw new AppAuthError(PROFILE_NOT_FOUND, 'Data profil pengguna tidak ditemukan di Firestore.');
   }
 
+  if (!isRole(profile.role)) {
+    await signOut(auth);
+    throw new AppAuthError('app/role-needs-migration', 'Peran akun lama harus dimigrasikan.');
+  }
   return profile;
 }
 
@@ -149,8 +157,11 @@ export async function logoutUser(): Promise<void> {
  * Mengambil profil pengguna dari Firestore berdasarkan UID
  */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const userDoc = await getDoc(doc(db, 'users', uid));
-  return userDoc.exists() ? (userDoc.data() as UserProfile) : null;
+  const userDoc = await getDocFromServer(doc(db, 'users', uid));
+  if (!userDoc.exists()) return null;
+  const profile = userDoc.data() as UserProfile;
+  if (profile.uid !== uid) throw new AppAuthError('permission-denied', 'UID profil tidak cocok.');
+  return profile;
 }
 
 /**

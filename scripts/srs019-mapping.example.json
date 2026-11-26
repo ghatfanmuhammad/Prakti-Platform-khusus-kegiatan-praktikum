@@ -1,0 +1,8 @@
+{
+  "classOwners": {
+    "CLASS_ID": "EXISTING_ASLAB_UID"
+  },
+  "assignments": [
+    { "classId": "CLASS_ID", "uid": "LEGACY_ASSISTANT_UID" }
+  ]
+}

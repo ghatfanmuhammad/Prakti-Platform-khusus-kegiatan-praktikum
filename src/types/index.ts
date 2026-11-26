@@ -1,4 +1,4 @@
-export type Role = 'asisten' | 'praktikan';
+export type Role = 'aslab' | 'asprak' | 'praktikan';
 
 export type SessionStatus = 'belum_dibuka' | 'dibuka' | 'ditutup';
 
@@ -15,7 +15,8 @@ export interface Praktikan {
 
 /** Pengguna yang sedang aktif, dipilih lewat layar pemilihan peran. */
 export type CurrentUser =
-  | { role: 'asisten'; asisten: Asisten }
+  | { role: 'aslab'; asisten: Asisten }
+  | { role: 'asprak'; asisten: Asisten }
   | { role: 'praktikan'; praktikan: Praktikan };
 
 export interface Sesi {
