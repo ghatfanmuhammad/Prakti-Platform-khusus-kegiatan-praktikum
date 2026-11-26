@@ -7,6 +7,7 @@ import { RoleSelectScreen } from '../screens/RoleSelectScreen';
 import { getUserProfile, subscribeAuth, toCurrentUser } from '../services/authService';
 import { auth } from '../services/firebase';
 import { colors } from '../theme';
+import { AslabNavigator } from './AslabNavigator';
 import { AsistenNavigator } from './AsistenNavigator';
 import { PraktikanNavigator } from './PraktikanNavigator';
 
@@ -64,7 +65,12 @@ export function RootNavigator() {
     );
   }
 
-  return currentUser.role === 'asisten' ? <AsistenNavigator /> : <PraktikanNavigator />;
+  if (currentUser.role === 'aslab') return <AslabNavigator />;
+  return currentUser.role === 'asisten' || currentUser.role === 'asprak' ? (
+    <AsistenNavigator />
+  ) : (
+    <PraktikanNavigator />
+  );
 }
 
 const styles = StyleSheet.create({

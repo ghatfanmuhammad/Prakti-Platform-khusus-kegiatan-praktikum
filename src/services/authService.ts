@@ -13,10 +13,10 @@ import {
   setDoc,
 } from 'firebase/firestore';
 
-import type { CurrentUser } from '../types';
+import type { CurrentUser, Role } from '../types';
 import { auth, db } from './firebase';
 
-export type UserRole = 'asisten' | 'praktikan';
+export type UserRole = Role;
 
 export interface UserProfile {
   uid: string;
@@ -75,6 +75,12 @@ export function formatAuthError(errorCode: string, context?: { role?: UserRole }
  * Mengubah profil Firestore menjadi bentuk user yang dipakai state aplikasi.
  */
 export function toCurrentUser(profile: UserProfile): CurrentUser {
+  if (profile.role === 'aslab') {
+    return { role: 'aslab', aslab: { id: profile.uid, nama: profile.name } };
+  }
+  if (profile.role === 'asprak') {
+    return { role: 'asprak', asprak: { id: profile.uid, nama: profile.name } };
+  }
   if (profile.role === 'asisten') {
     return { role: 'asisten', asisten: { id: profile.uid, nama: profile.name } };
   }

@@ -73,8 +73,8 @@ const repository = load('repository');
 const { validateForm, assertScheduleDate } = load('validation');
 beforeEach(() => {
   documents = new Map([
-    ['users/assistant', { role: 'asisten' }],
-    ['users/another', { role: 'asisten' }],
+    ['users/assistant', { role: 'aslab' }],
+    ['users/another', { role: 'aslab' }],
     ['users/student', { role: 'praktikan' }],
   ]);
   user = { uid: 'assistant' };
@@ -148,10 +148,10 @@ test('writes require a signed-in assistant, including after role revocation', as
   user = null;
   await assert.rejects(makeClass(), /masuk kembali/);
   user = { uid: 'student' };
-  await assert.rejects(makeClass(), /Hanya asisten/);
+  await assert.rejects(makeClass(), /Hanya Aslab/);
   user = { uid: 'assistant' };
   documents.set('users/assistant', { role: 'praktikan' });
-  await assert.rejects(makeClass(), /Hanya asisten/);
+  await assert.rejects(makeClass(), /Hanya Aslab/);
   assert.equal(
     [...documents.keys()].some((key) => key.startsWith('classes/')),
     false,
@@ -221,7 +221,7 @@ test('opened sessions retain history and closed sessions are terminal', async ()
   const sessionId = await makeSession(classId, scheduleId);
   const codePath = `sessionCodes/${classId}~${sessionId}`;
   user = { uid: 'another' };
-  await assert.rejects(repository.changeSessionStatus(classId, sessionId, 'dibuka'), /diampu asisten lain/);
+  await assert.rejects(repository.changeSessionStatus(classId, sessionId, 'dibuka'), /diampu asprak lain/);
   user = { uid: 'assistant' };
   await repository.changeSessionStatus(classId, sessionId, 'dibuka', 'Topik uji');
   assert.equal(documents.get(codePath).kode, '4829');

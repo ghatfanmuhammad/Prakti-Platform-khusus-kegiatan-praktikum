@@ -1,16 +1,29 @@
 import {
   collection,
   doc,
+  getDocs,
+  onSnapshot,
+  query,
   runTransaction,
   serverTimestamp,
+  where,
+  type DocumentData,
   type DocumentReference,
   type DocumentSnapshot,
-  type DocumentData,
   type Transaction,
 } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
+import type { Role } from '../../types';
 import { buatKodeSesi } from '../../utils/code';
-import type { FormValues, Kind, PracticumClass, PracticumSession, Schedule } from './models';
+import type { AkunPenggunaRingkas } from '../impor/pencocokan';
+import type {
+  FormValues,
+  Kind,
+  PracticumClass,
+  PracticumSession,
+  RiwayatPindah,
+  Schedule,
+} from './models';
 import {
   assertScheduleDate,
   assertTransition,
@@ -24,11 +37,22 @@ function context() {
   if (!user) throw new Error('Silakan masuk kembali sebelum mengubah data.');
   return { db, user };
 }
-async function requireAssistant(tx: Transaction, ref: DocumentReference) {
+
+async function requireAslab(tx: Transaction, ref: DocumentReference) {
   const profile = await tx.get(ref);
-  if (profile.data()?.role !== 'asisten')
-    throw new Error('Hanya asisten yang dapat mengelola data praktikum.');
+  if (profile.data()?.role !== 'aslab') {
+    throw new Error('Hanya Aslab yang dapat mengelola data praktikum.');
+  }
 }
+
+async function requireSessionManager(tx: Transaction, ref: DocumentReference) {
+  const profile = await tx.get(ref);
+  const role = profile.data()?.role;
+  if (role !== 'asprak' && role !== 'asisten' && role !== 'aslab') {
+    throw new Error('Hanya Asprak atau Aslab yang dapat mengubah status sesi.');
+  }
+}
+
 function counter(kind: Exclude<Kind, 'kelas'>) {
   return (
     {
@@ -38,6 +62,7 @@ function counter(kind: Exclude<Kind, 'kelas'>) {
     } as const
   )[kind];
 }
+
 function validRecordId(kind: Kind, id: string) {
   if (kind !== 'peserta') return validId(id);
   const parts = id.split('~');
@@ -65,15 +90,30 @@ export async function saveRecord(
   const now = serverTimestamp();
   if (kind === 'kelas') {
     const ref = recordId ? doc(db, 'classes', recordId) : doc(collection(db, 'classes'));
+    const classPayload: Record<string, unknown> = {
+      kode: values.kode,
+      namaPraktikum: values.namaPraktikum,
+      ...(values.namaLab !== undefined ? { namaLab: values.namaLab } : {}),
+      ...(values.labId !== undefined ? { labId: values.labId } : {}),
+      ...(values.toleransiMenit !== undefined
+        ? { toleransiMenit: Number(values.toleransiMenit) }
+        : {}),
+      ...(values.nominalDenda !== undefined
+        ? { nominalDenda: Number(values.nominalDenda) }
+        : {}),
+    };
     await runTransaction(db, async (tx) => {
-      await requireAssistant(tx, doc(db, 'users', user.uid));
+      await requireAslab(tx, doc(db, 'users', user.uid));
       const existing = await tx.get(ref);
       if (recordId && !existing.exists())
         throw new Error('Kelas sudah dihapus. Muat ulang daftar.');
-      if (recordId) tx.update(ref, { ...values, updatedAt: now });
+      if (recordId && existing.data()?.aslabUid && existing.data()?.aslabUid !== user.uid)
+        throw new Error('Anda hanya dapat mengelola Lab milik Anda sendiri.');
+      if (recordId) tx.update(ref, { ...classPayload, updatedAt: now });
       else
         tx.set(ref, {
-          ...values,
+          ...classPayload,
+          aslabUid: user.uid,
           participantCount: 0,
           scheduleCount: 0,
           sessionCount: 0,
@@ -92,10 +132,12 @@ export async function saveRecord(
       : doc(collection(parent, kind === 'jadwal' ? 'schedules' : 'sessions')).id);
   const ref = targetRef(kind, classId, id);
   await runTransaction(db, async (tx) => {
-    await requireAssistant(tx, doc(db, 'users', user.uid));
+    await requireAslab(tx, doc(db, 'users', user.uid));
     const classSnapshot = await tx.get(parent);
     const current = await tx.get(ref);
     if (!classSnapshot.exists()) throw new Error('Kelas sudah dihapus. Muat ulang daftar.');
+    if (classSnapshot.data()?.aslabUid && classSnapshot.data()?.aslabUid !== user.uid)
+      throw new Error('Anda hanya dapat mengelola Lab milik Anda sendiri.');
     if (recordId && !current.exists()) throw new Error('Data sudah dihapus. Muat ulang daftar.');
     if (!recordId && current.exists()) throw new Error('Peserta sudah terdaftar di kelas ini.');
     if (kind === 'peserta') {
@@ -181,11 +223,13 @@ export async function deleteRecord(kind: Kind, classId: string | null, id: strin
     throw new Error('Data tidak valid. Muat ulang daftar.');
   const ref = kind === 'kelas' ? doc(db, 'classes', id) : targetRef(kind, classId!, id);
   await runTransaction(db, async (tx) => {
-    await requireAssistant(tx, doc(db, 'users', user.uid));
+    await requireAslab(tx, doc(db, 'users', user.uid));
     const current = await tx.get(ref);
     if (!current.exists()) throw new Error('Data sudah dihapus. Muat ulang daftar.');
     if (kind === 'kelas') {
       const data = current.data() as PracticumClass;
+      if (data.aslabUid && data.aslabUid !== user.uid)
+        throw new Error('Anda hanya dapat menghapus Lab milik Anda sendiri.');
       if (data.participantCount || data.scheduleCount || data.sessionCount)
         throw new Error('Hapus seluruh peserta, sesi, dan jadwal sebelum menghapus kelas.');
       tx.delete(ref);
@@ -194,6 +238,8 @@ export async function deleteRecord(kind: Kind, classId: string | null, id: strin
     const parent = doc(db, 'classes', classId!);
     const classSnapshot = await tx.get(parent);
     if (!classSnapshot.exists()) throw new Error('Kelas sudah tidak tersedia.');
+    if (classSnapshot.data()?.aslabUid && classSnapshot.data()?.aslabUid !== user.uid)
+      throw new Error('Anda hanya dapat mengelola Lab milik Anda sendiri.');
     if (kind === 'peserta' && current.data().classId !== classId)
       throw new Error('Peserta tidak terdaftar di kelas ini.');
     if (kind === 'jadwal' && current.data().sessionCount > 0)
@@ -236,11 +282,11 @@ export async function changeSessionStatus(
   const codeRef = doc(db, 'sessionCodes', `${classId}~${sessionId}`);
   const kode = buatKodeSesi();
   await runTransaction(db, async (tx) => {
-    await requireAssistant(tx, doc(db, 'users', user.uid));
+    await requireSessionManager(tx, doc(db, 'users', user.uid));
     const current = await tx.get(ref);
     if (!current.exists()) throw new Error('Sesi sudah dihapus.');
     const session = current.data() as PracticumSession;
-    if (session.asistenId !== user.uid) throw new Error('Sesi ini diampu asisten lain.');
+    if (session.asistenId !== user.uid) throw new Error('Sesi ini diampu asprak lain.');
     assertTransition(session.status, next);
     tx.update(ref, {
       status: next,
@@ -253,4 +299,134 @@ export async function changeSessionStatus(
       tx.delete(codeRef);
     }
   });
+}
+
+/** Mengambil daftar akun pengguna untuk pencocokan NIM/email/kode oleh Aslab (SRS-022 & SRS-023). */
+export async function ambilDaftarAkunPengguna(): Promise<AkunPenggunaRingkas[]> {
+  context();
+  const snap = await getDocs(collection(db, 'users'));
+  return snap.docs.map((item) => {
+    const d = item.data();
+    return {
+      uid: String(d.uid ?? item.id),
+      email: String(d.email ?? ''),
+      name: String(d.name ?? ''),
+      role: (d.role ?? 'praktikan') as Role,
+      nimOrCode: String(d.nimOrCode ?? ''),
+    };
+  });
+}
+
+/**
+ * Memindahkan satu praktikan antar-Lab dalam satu transaksi atomik dan mencatatnya di `riwayatPindah` (SRS-022).
+ * Jadwal dan riwayat presensi di Lab asal tidak ikut dipindah / diubah.
+ */
+export async function pindahPraktikan({
+  uid,
+  dariClassId,
+  keClassId,
+}: {
+  uid: string;
+  dariClassId: string;
+  keClassId: string;
+}): Promise<void> {
+  const { db, user } = context();
+  if (!validId(uid) || !validId(dariClassId) || !validId(keClassId)) {
+    throw new Error('ID praktikan atau Lab tidak valid.');
+  }
+  if (dariClassId === keClassId) {
+    throw new Error('Lab tujuan harus berbeda dari Lab asal.');
+  }
+
+  const oldId = participantId(dariClassId, uid);
+  const newId = participantId(keClassId, uid);
+  const oldRef = doc(db, 'participants', oldId);
+  const newRef = doc(db, 'participants', newId);
+  const fromClassRef = doc(db, 'classes', dariClassId);
+  const toClassRef = doc(db, 'classes', keClassId);
+  const accountRef = doc(db, 'users', uid);
+  const historyRef = doc(collection(db, 'riwayatPindah'));
+
+  await runTransaction(db, async (tx) => {
+    await requireAslab(tx, doc(db, 'users', user.uid));
+
+    const [accountSnap, fromClassSnap, toClassSnap, oldSnap, newSnap] = await Promise.all([
+      tx.get(accountRef),
+      tx.get(fromClassRef),
+      tx.get(toClassRef),
+      tx.get(oldRef),
+      tx.get(newRef),
+    ]);
+
+    if (accountSnap.data()?.role !== 'praktikan') {
+      throw new Error('Akun yang dipindahkan bukan praktikan.');
+    }
+    if (!fromClassSnap.exists() || !toClassSnap.exists()) {
+      throw new Error('Lab asal atau Lab tujuan tidak ditemukan.');
+    }
+    if (
+      fromClassSnap.data()?.aslabUid !== user.uid ||
+      toClassSnap.data()?.aslabUid !== user.uid
+    ) {
+      throw new Error('Anda hanya dapat memindahkan praktikan antar-Lab milik Anda sendiri.');
+    }
+    if (!oldSnap.exists()) {
+      throw new Error('Praktikan tidak terdaftar di Lab asal.');
+    }
+    if (newSnap.exists()) {
+      throw new Error('Praktikan sudah terdaftar di Lab tujuan.');
+    }
+
+    const oldData = oldSnap.data();
+    const now = serverTimestamp();
+
+    tx.delete(oldRef);
+    tx.set(newRef, {
+      classId: keClassId,
+      uid,
+      nama: oldData.nama,
+      nim: oldData.nim,
+      createdAt: now,
+      updatedAt: now,
+    });
+    tx.update(fromClassRef, {
+      participantCount: Math.max(0, (fromClassSnap.data()?.participantCount ?? 1) - 1),
+      lastChildId: oldId,
+      updatedAt: now,
+    });
+    tx.update(toClassRef, {
+      participantCount: (toClassSnap.data()?.participantCount ?? 0) + 1,
+      lastChildId: newId,
+      updatedAt: now,
+    });
+    tx.set(historyRef, {
+      jenis: 'praktikan',
+      uid,
+      dariClassId,
+      keClassId,
+      olehUid: user.uid,
+      waktu: now,
+    });
+  });
+}
+
+/** Berlangganan riwayat perpindahan (`praktikan` atau `asprak`) milik Aslab secara real-time. */
+export function subscribeRiwayatPindah(
+  aslabUid: string,
+  jenis: 'praktikan' | 'asprak',
+  onData: (daftar: RiwayatPindah[]) => void,
+  onError: (error: unknown) => void,
+): () => void {
+  const q = query(collection(db, 'riwayatPindah'), where('olehUid', '==', aslabUid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<RiwayatPindah, 'id'>) }))
+        .filter((item) => item.jenis === jenis)
+        .sort((a, b) => (b.waktu?.toMillis?.() ?? 0) - (a.waktu?.toMillis?.() ?? 0));
+      onData(items);
+    },
+    onError,
+  );
 }

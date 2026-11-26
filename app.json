@@ -48,7 +48,8 @@
         {
           "locationWhenInUsePermission": "Izinkan PRAKTI memakai lokasimu untuk memastikan kamu berada di laboratorium saat presensi."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

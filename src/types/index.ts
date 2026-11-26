@@ -1,6 +1,11 @@
-export type Role = 'asisten' | 'praktikan';
+export type Role = 'aslab' | 'asprak' | 'asisten' | 'praktikan';
 
 export type SessionStatus = 'belum_dibuka' | 'dibuka' | 'ditutup';
+
+export interface Aslab {
+  id: string;
+  nama: string;
+}
 
 export interface Asisten {
   id: string;
@@ -13,8 +18,10 @@ export interface Praktikan {
   nama: string;
 }
 
-/** Pengguna yang sedang aktif, dipilih lewat layar pemilihan peran. */
+/** Pengguna yang sedang aktif. */
 export type CurrentUser =
+  | { role: 'aslab'; aslab: Aslab }
+  | { role: 'asprak'; asprak: Asisten }
   | { role: 'asisten'; asisten: Asisten }
   | { role: 'praktikan'; praktikan: Praktikan };
 
@@ -22,6 +29,9 @@ export interface Sesi {
   id: string;
   classId?: string;
   sessionId?: string;
+  namaLab?: string;
+  toleransiMenit?: number;
+  nominalDenda?: number;
   modul?: string;
   keterangan?: string;
   praktikum: string;

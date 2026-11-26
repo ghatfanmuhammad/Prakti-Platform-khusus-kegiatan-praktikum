@@ -16,7 +16,7 @@ import { saveAttendance } from '../features/data-praktikum/attendance';
 import { usePracticumData } from '../features/data-praktikum/hooks';
 import { changeSessionStatus } from '../features/data-praktikum/repository';
 import type { LokasiValid } from '../features/presensi/lokasi';
-import type { Asisten, CurrentUser, Praktikan, Presensi, Sesi } from '../types';
+import type { Asisten, Aslab, CurrentUser, Praktikan, Presensi, Sesi } from '../types';
 import { evaluateCheckIn, type CheckInResult } from '../utils/attendanceRules';
 import { buatKodeSesi } from '../utils/code';
 import { cariSesi } from '../utils/selectors';
@@ -51,14 +51,21 @@ export function PraktiProvider({ children }: { children: ReactNode }) {
   const retryPracticum = useCallback(() => setAttempt((retry) => retry + 1), []);
   const user = state.currentUser;
   const role = user?.role;
-  const uid = user?.role === 'asisten' ? user.asisten.id : user?.praktikan.id;
+  const uid =
+    user?.role === 'aslab'
+      ? user.aslab.id
+      : user?.role === 'asprak'
+        ? user.asprak.id
+        : user?.role === 'asisten'
+          ? user.asisten.id
+          : user?.praktikan.id;
   const identity = role && uid && !state.demo ? { role, uid } : null;
   const data = usePracticumData(identity, attempt);
   const practicum = identity ? data : null;
   const sesi = state.demo ? state.sesi : data.sesi;
   const presensi = state.demo ? state.presensi : data.presensi;
   const asistenList = useMemo(() =>
-    state.demo || !user ? DAFTAR_ASISTEN : user?.role === 'asisten' ? [user.asisten] : [],
+    state.demo || !user ? DAFTAR_ASISTEN : user?.role === 'asisten' ? [user.asisten] : user?.role === 'asprak' ? [user.asprak] : [],
     [state.demo, user],
   );
   const pesertaSesi = useCallback((target: Sesi) =>
@@ -142,7 +149,12 @@ export function usePrakti(): PraktiContextValue {
  */
 export function useCurrentAsisten(): Asisten | null {
   const { currentUser } = usePrakti();
-  return currentUser?.role === 'asisten' ? currentUser.asisten : null;
+  return currentUser?.role === 'asisten' ? currentUser.asisten : currentUser?.role === 'asprak' ? currentUser.asprak : null;
+}
+
+export function useCurrentAslab(): Aslab | null {
+  const { currentUser } = usePrakti();
+  return currentUser?.role === 'aslab' ? currentUser.aslab : null;
 }
 
 export function useCurrentPraktikan(): Praktikan | null {

@@ -20,7 +20,11 @@ export function ProfileScreen() {
   if (!currentUser) return null;
 
   const profil =
-    currentUser.role === 'asisten'
+    currentUser.role === 'aslab'
+      ? { nama: currentUser.aslab.nama, highlight: 'Aslab', detail: 'Pengelola Laboratorium' }
+      : currentUser.role === 'asprak'
+        ? { nama: currentUser.asprak.nama, highlight: 'Asprak', detail: 'Pengampu Praktikum' }
+        : currentUser.role === 'asisten'
       ? { nama: currentUser.asisten.nama, highlight: 'Asisten Praktikum', detail: 'Laboratorium Komputer' }
       : {
           nama: toTitleCase(currentUser.praktikan.nama),

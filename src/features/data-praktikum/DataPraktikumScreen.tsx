@@ -111,7 +111,7 @@ export function DataPraktikumScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.screen}>
       <AppHeader subtitle="Data Praktikum" onBack={onBack} />
-      <PracticumWorkspace assistant={currentUser.role === 'asisten'} />
+      <PracticumWorkspace assistant={currentUser.role === 'aslab' || currentUser.role === 'asisten'} />
     </View>
   );
 }
@@ -398,10 +398,10 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
                 !classId && kind !== 'kelas'
                   ? assistant
                     ? 'Buka tab Kelas untuk menambahkan kelas praktikum.'
-                    : 'Hubungi asisten untuk mendaftarkan akun Anda ke kelas.'
+                    : 'Hubungi Aslab untuk mendaftarkan akun Anda ke kelas.'
                   : assistant
                     ? `Gunakan tombol Tambah ${LABELS[kind].toLowerCase()} untuk memulai.`
-                    : 'Data akan tampil setelah ditambahkan oleh asisten.'
+                    : 'Data akan tampil setelah ditambahkan oleh Aslab.'
               }
             />
           )

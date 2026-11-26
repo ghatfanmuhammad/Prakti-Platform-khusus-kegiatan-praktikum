@@ -31,8 +31,9 @@ function BarisSesi({ judul, sesi }: { judul: string; sesi: Sesi }) {
 
 /** Peta laboratorium Informatika: marker lab, posisi pengguna, dan aktivitas praktikum (SRS-015, 016, 018). */
 export function MapsScreen({ navigation }: { navigation: any }) {
-  const { data: labs, loading, error, retry } = useLaboratorium();
-  const { sesi } = usePrakti();
+  const { sesi, practicum } = usePrakti();
+  const { data: labs, loading, error, retry } = useLaboratorium(!practicum);
+
   const lokasi = useLokasiPengguna();
   const [terpilihId, setTerpilihId] = useState<string | null>(null);
   // Menyegarkan "praktikum berikutnya" tiap menit tanpa menunggu data Firestore berubah.
@@ -90,7 +91,7 @@ export function MapsScreen({ navigation }: { navigation: any }) {
         ) : null}
 
         {!loading && !error && labs.length === 0 ? (
-          <Text style={styles.meta}>Belum ada laboratorium. Asisten dapat menambahkannya di menu Kelola Lab.</Text>
+          <Text style={styles.meta}>Belum ada laboratorium. Aslab dapat menambahkannya di menu Kelola Lab.</Text>
         ) : null}
 
         {terpilih && aktivitas ? (

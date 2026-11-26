@@ -16,8 +16,14 @@ export type AppStackParamList = {
   PemeriksaanIzin: undefined;
   /** Peta laboratorium (SRS-015/016), semua peran. */
   Maps: undefined;
-  /** Hanya asisten: kelola lokasi laboratorium (SRS-014). */
+  /** Hanya Aslab: kelola Lab, lokasi, dan kebijakan presensi (SRS-020). */
   KelolaLab: undefined;
+  /** Hanya Aslab: bulk & single insert Lab per mata kuliah (SRS-021). */
+  ImporLab: undefined;
+  /** Hanya Aslab: insert & pindah praktikan antar-Lab (SRS-022). */
+  ImporPraktikan: { classId?: string } | undefined;
+  /** Hanya Aslab: tugaskan & pindah Asprak antar-Lab (SRS-023). */
+  ImporAsprak: { classId?: string } | undefined;
   /** Hanya praktikan: halaman presensi untuk satu sesi (SRS-012). */
   Presensi: { sesiId: string };
   /** Hanya praktikan. */
