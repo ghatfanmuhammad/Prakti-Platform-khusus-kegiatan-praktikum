@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -9,7 +8,7 @@ import { Card } from '../../components/Card';
 import { EmptyState } from '../../components/EmptyState';
 import { IzinStatusBadge } from '../../components/IzinStatusBadge';
 import { useCurrentPraktikan } from '../../context/PraktiContext';
-import type { AppStackParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import {
   formatIzinError,
   subscribeIzinPraktikan,
@@ -17,7 +16,7 @@ import {
 } from '../../services/izinService';
 import { colors, radius, spacing, typography } from '../../theme';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'StatusIzin'>;
+type Props = ScreenProps<'StatusIzin'>;
 
 const KETERANGAN: Record<PengajuanIzin['status'], string> = {
   Menunggu: 'Menunggu pemeriksaan asisten.',

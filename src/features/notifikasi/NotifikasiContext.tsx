@@ -18,7 +18,7 @@ import {
 import { AppState, Platform } from 'react-native';
 
 import { usePrakti } from '../../context/PraktiContext';
-import { navigationRef } from '../../navigation/navigationRef';
+import { router, useRootNavigationState } from 'expo-router';
 import { lepasRegistrasi, sinkronkanPerangkat } from './sinkronisasiPush';
 import type { DataNotifikasi } from './pesan';
 import { aturTampilanNotifikasi, type StatusPush } from './registrasiPush';
@@ -113,6 +113,7 @@ export function NotifikasiProvider({ children }: { children: ReactNode }) {
 /** Mengetuk notifikasi membuka layar terkait (juga saat aplikasi dibuka dari notifikasi). */
 function useBukaLayarDariNotifikasi(uid: string | null) {
   const respons = useResponNotifikasi();
+  const rootNavigation = useRootNavigationState();
   const ditangani = useRef<string | null>(null);
   const [percobaan, setPercobaan] = useState(0);
 
@@ -121,7 +122,7 @@ function useBukaLayarDariNotifikasi(uid: string | null) {
     const id = respons.notification.request.identifier;
     if (ditangani.current === id) return;
     // Navigator praktikan bisa belum siap sesaat setelah login dipulihkan
-    if (!navigationRef.isReady()) {
+    if (!rootNavigation?.key) {
       if (percobaan >= 20) return;
       const timer = setTimeout(() => setPercobaan((n) => n + 1), 300);
       return () => clearTimeout(timer);
@@ -129,13 +130,13 @@ function useBukaLayarDariNotifikasi(uid: string | null) {
     ditangani.current = id;
     const data = respons.notification.request.content.data as Partial<DataNotifikasi> | undefined;
     if (data?.jenis === 'sesi_dibuka' && typeof data.sesiId === 'string') {
-      navigationRef.navigate('Presensi', { sesiId: data.sesiId });
+      router.push({ pathname: '/[role]/[screen]', params: { role: 'praktikan', screen: 'presensi', sesiId: data.sesiId } });
     } else if (data?.jenis === 'jadwal_berubah') {
-      navigationRef.navigate('Schedule');
+      router.push('/praktikan/jadwal');
     } else if (data?.jenis === 'keputusan_izin') {
-      navigationRef.navigate('StatusIzin');
+      router.push('/praktikan/status-izin');
     }
-  }, [uid, respons, percobaan]);
+  }, [uid, respons, percobaan, rootNavigation?.key]);
 }
 
 export function useNotifikasi(): NotifikasiContextValue {

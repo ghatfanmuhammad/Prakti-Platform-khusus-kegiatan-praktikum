@@ -17,7 +17,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { HasilAIBox } from '../../components/HasilAIBox';
 import { IzinStatusBadge } from '../../components/IzinStatusBadge';
 import { useToast } from '../../components/Toast';
-import { useCurrentAsisten } from '../../context/PraktiContext';
+import { useCurrentAsisten, usePrakti } from '../../context/PraktiContext';
 import {
   formatIzinError,
   klasifikasiUlangIzin,
@@ -31,6 +31,8 @@ import { cardShadow, colors, radius, spacing, typography } from '../../theme';
 export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
   const asisten = useCurrentAsisten();
   const toast = useToast();
+  const { sesi } = usePrakti();
+  const sessionKey = sesi.map((item) => item.id).sort().join(',');
   const [daftarIzin, setDaftarIzin] = useState<PengajuanIzin[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorKoneksi, setErrorKoneksi] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
 
     // Berlangganan data izin real-time via Firestore (SRS-011)
     const unsubscribe = subscribeDaftarIzin(
+      sessionKey ? sessionKey.split(',') : [],
       ({ daftar, dariCache: cache }) => {
         setDaftarIzin(daftar);
         setDariCache(cache);
@@ -63,7 +66,7 @@ export function PemeriksaanIzinScreen({ navigation }: { navigation: any }) {
     );
 
     return () => unsubscribe();
-  }, [percobaan]);
+  }, [percobaan, sessionKey]);
 
   const tutupKonfirmasi = () => {
     setSelectedIzin(null);

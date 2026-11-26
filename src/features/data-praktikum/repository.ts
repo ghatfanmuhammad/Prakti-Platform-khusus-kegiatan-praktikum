@@ -3,7 +3,6 @@ import {
   doc,
   runTransaction,
   serverTimestamp,
-  type DocumentReference,
   type DocumentSnapshot,
   type DocumentData,
   type Transaction,
@@ -24,10 +23,21 @@ function context() {
   if (!user) throw new Error('Silakan masuk kembali sebelum mengubah data.');
   return { db, user };
 }
-async function requireAssistant(tx: Transaction, ref: DocumentReference) {
-  const profile = await tx.get(ref);
-  if (profile.data()?.role !== 'asisten')
-    throw new Error('Hanya asisten yang dapat mengelola data praktikum.');
+async function requireAccess(tx: Transaction, uid: string, classId: string | null, ownerOnly: boolean) {
+  const profile = await tx.get(doc(db, 'users', uid));
+  const role = profile.data()?.role;
+  if (!classId) {
+    if (role !== 'aslab') throw new Error('Hanya Aslab yang dapat mengelola Lab/kelas.');
+    return;
+  }
+  const klass = await tx.get(doc(db, 'classes', classId));
+  if (ownerOnly) {
+    if (role !== 'aslab' || klass.data()?.aslabUid !== uid) throw new Error('Hanya Aslab pemilik kelas yang dapat mengubah data ini.');
+  } else {
+    const assignment = await tx.get(doc(db, 'pengampu', `${classId}~${uid}`));
+    if (role !== 'asprak' || assignment.data()?.classId !== classId || assignment.data()?.uid !== uid)
+      throw new Error('Hanya Asprak yang ditugaskan pada kelas ini yang dapat mengelola kegiatan.');
+  }
 }
 function counter(kind: Exclude<Kind, 'kelas'>) {
   return (
@@ -66,7 +76,7 @@ export async function saveRecord(
   if (kind === 'kelas') {
     const ref = recordId ? doc(db, 'classes', recordId) : doc(collection(db, 'classes'));
     await runTransaction(db, async (tx) => {
-      await requireAssistant(tx, doc(db, 'users', user.uid));
+      await requireAccess(tx, user.uid, recordId, true);
       const existing = await tx.get(ref);
       if (recordId && !existing.exists())
         throw new Error('Kelas sudah dihapus. Muat ulang daftar.');
@@ -74,6 +84,7 @@ export async function saveRecord(
       else
         tx.set(ref, {
           ...values,
+          aslabUid: user.uid,
           participantCount: 0,
           scheduleCount: 0,
           sessionCount: 0,
@@ -92,7 +103,7 @@ export async function saveRecord(
       : doc(collection(parent, kind === 'jadwal' ? 'schedules' : 'sessions')).id);
   const ref = targetRef(kind, classId, id);
   await runTransaction(db, async (tx) => {
-    await requireAssistant(tx, doc(db, 'users', user.uid));
+    await requireAccess(tx, user.uid, classId, kind === 'peserta');
     const classSnapshot = await tx.get(parent);
     const current = await tx.get(ref);
     if (!classSnapshot.exists()) throw new Error('Kelas sudah dihapus. Muat ulang daftar.');
@@ -181,7 +192,7 @@ export async function deleteRecord(kind: Kind, classId: string | null, id: strin
     throw new Error('Data tidak valid. Muat ulang daftar.');
   const ref = kind === 'kelas' ? doc(db, 'classes', id) : targetRef(kind, classId!, id);
   await runTransaction(db, async (tx) => {
-    await requireAssistant(tx, doc(db, 'users', user.uid));
+    await requireAccess(tx, user.uid, kind === 'kelas' ? id : classId, kind === 'kelas' || kind === 'peserta');
     const current = await tx.get(ref);
     if (!current.exists()) throw new Error('Data sudah dihapus. Muat ulang daftar.');
     if (kind === 'kelas') {
@@ -236,7 +247,7 @@ export async function changeSessionStatus(
   const codeRef = doc(db, 'sessionCodes', `${classId}~${sessionId}`);
   const kode = buatKodeSesi();
   await runTransaction(db, async (tx) => {
-    await requireAssistant(tx, doc(db, 'users', user.uid));
+    await requireAccess(tx, user.uid, classId, false);
     const current = await tx.get(ref);
     if (!current.exists()) throw new Error('Sesi sudah dihapus.');
     const session = current.data() as PracticumSession;

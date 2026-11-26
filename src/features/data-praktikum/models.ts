@@ -14,6 +14,7 @@ interface RecordBase {
   updatedAt: Timestamp;
 }
 export interface PracticumClass extends RecordBase {
+  aslabUid: string;
   kode: string;
   namaPraktikum: string;
   participantCount: number;

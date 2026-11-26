@@ -20,8 +20,8 @@ export function ProfileScreen() {
   if (!currentUser) return null;
 
   const profil =
-    currentUser.role === 'asisten'
-      ? { nama: currentUser.asisten.nama, highlight: 'Asisten Praktikum', detail: 'Laboratorium Komputer' }
+    currentUser.role !== 'praktikan'
+      ? { nama: currentUser.asisten.nama, highlight: currentUser.role === 'aslab' ? 'Aslab' : 'Asprak', detail: 'Laboratorium Komputer' }
       : {
           nama: toTitleCase(currentUser.praktikan.nama),
           highlight: `NIM ${currentUser.praktikan.nim}`,

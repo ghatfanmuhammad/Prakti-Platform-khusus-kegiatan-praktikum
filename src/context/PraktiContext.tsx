@@ -51,14 +51,14 @@ export function PraktiProvider({ children }: { children: ReactNode }) {
   const retryPracticum = useCallback(() => setAttempt((retry) => retry + 1), []);
   const user = state.currentUser;
   const role = user?.role;
-  const uid = user?.role === 'asisten' ? user.asisten.id : user?.praktikan.id;
+  const uid = user ? (user.role === 'praktikan' ? user.praktikan.id : user.asisten.id) : undefined;
   const identity = role && uid && !state.demo ? { role, uid } : null;
   const data = usePracticumData(identity, attempt);
   const practicum = identity ? data : null;
   const sesi = state.demo ? state.sesi : data.sesi;
   const presensi = state.demo ? state.presensi : data.presensi;
   const asistenList = useMemo(() =>
-    state.demo || !user ? DAFTAR_ASISTEN : user?.role === 'asisten' ? [user.asisten] : [],
+    state.demo || !user ? DAFTAR_ASISTEN : user && user.role !== 'praktikan' ? [user.asisten] : [],
     [state.demo, user],
   );
   const pesertaSesi = useCallback((target: Sesi) =>
@@ -142,7 +142,7 @@ export function usePrakti(): PraktiContextValue {
  */
 export function useCurrentAsisten(): Asisten | null {
   const { currentUser } = usePrakti();
-  return currentUser?.role === 'asisten' ? currentUser.asisten : null;
+  return currentUser?.role === 'asprak' ? currentUser.asisten : null;
 }
 
 export function useCurrentPraktikan(): Praktikan | null {
