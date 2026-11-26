@@ -39,6 +39,10 @@ export function AsistenHomeScreen({ navigation }: Props) {
             { key: 'rekap', label: 'Rekap', icon: 'list-outline', onPress: () => navigation.navigate('Recap') },
             { key: 'izin', label: 'Cek Izin', icon: 'document-text-outline', onPress: () => navigation.navigate('PemeriksaanIzin') },
             { key: 'maps', label: 'Maps', icon: 'map-outline', onPress: () => navigation.navigate('Maps') },
+<<<<<<< HEAD
+
+=======
+>>>>>>> origin/main
             { key: 'profil', label: 'Profil', icon: 'person-outline', onPress: () => navigation.navigate('Tabs', { screen: 'Profil' }) },
           ]}
         />

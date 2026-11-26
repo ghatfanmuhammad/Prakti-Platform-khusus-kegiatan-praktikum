@@ -17,6 +17,16 @@ export interface PracticumClass extends RecordBase {
   aslabUid: string;
   kode: string;
   namaPraktikum: string;
+  /** Nama Lab / kelompok praktikum (SRS-020). */
+  namaLab?: string;
+  /** UID Aslab pemilik Lab (SRS-020). */
+  aslabUid?: string;
+  /** ID ruang fisik di koleksi `laboratories` (SRS-020). */
+  labId?: string;
+  /** Batas toleransi keterlambatan dalam menit, 0–120 (SRS-020). */
+  toleransiMenit?: number;
+  /** Nominal denda keterlambatan dalam rupiah, > 0 (SRS-020). */
+  nominalDenda?: number;
   participantCount: number;
   scheduleCount: number;
   sessionCount: number;
@@ -26,6 +36,22 @@ export interface Participant extends RecordBase {
   uid: string;
   nama: string;
   nim: string;
+}
+export interface Pengampu extends RecordBase {
+  classId: string;
+  uid: string;
+  nama: string;
+  kode: string;
+  email?: string | null;
+}
+export interface RiwayatPindah {
+  id: string;
+  jenis: 'praktikan' | 'asprak';
+  uid: string;
+  dariClassId: string;
+  keClassId: string;
+  olehUid: string;
+  waktu?: Timestamp;
 }
 export interface Schedule extends RecordBase {
   hari: Day;

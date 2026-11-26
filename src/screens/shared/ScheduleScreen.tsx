@@ -45,8 +45,14 @@ export function ScheduleScreen({ navigation }: Props) {
       <AppHeader subtitle="Jadwal Praktikum" onBack={navigation.goBack} />
       {practicum ? (
         <Button
+<<<<<<< HEAD
+          label={currentUser?.role === 'aslab' ? 'Kelola data praktikum' : 'Lihat jadwal per kelas'}
+          icon={currentUser?.role === 'aslab' ? 'settings-outline' : 'list-outline'}
+
+=======
           label={currentUser?.role === 'asprak' ? 'Kelola data praktikum' : 'Lihat jadwal per kelas'}
           icon={currentUser?.role === 'asprak' ? 'settings-outline' : 'list-outline'}
+>>>>>>> origin/main
           variant="outline"
           style={styles.manage}
           onPress={() => setShowData(true)}
@@ -71,7 +77,11 @@ export function ScheduleScreen({ navigation }: Props) {
             }
             renderItem={({ item }) => {
               let footer = null;
+<<<<<<< HEAD
+              if (currentUser?.role === 'aslab' || currentUser?.role === 'asprak' || currentUser?.role === 'asisten') {
+=======
               if (currentUser?.role === 'asprak') {
+>>>>>>> origin/main
                 footer = (
                   <Text style={styles.footer}>
                     {presensiSesi(presensi, item.id).length}/{pesertaSesi(item).length} hadir

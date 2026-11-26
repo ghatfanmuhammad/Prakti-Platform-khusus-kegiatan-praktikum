@@ -14,7 +14,10 @@ import {
 } from 'firebase/firestore';
 
 import type { CurrentUser, Role } from '../types';
+<<<<<<< HEAD
+=======
 import { isRole, ROLE_LABELS } from '../features/auth/roles';
+>>>>>>> origin/main
 import { auth, db } from './firebase';
 
 export type UserRole = Role;
@@ -78,9 +81,20 @@ export function formatAuthError(errorCode: string, context?: { role?: UserRole }
  * Mengubah profil Firestore menjadi bentuk user yang dipakai state aplikasi.
  */
 export function toCurrentUser(profile: UserProfile): CurrentUser {
+<<<<<<< HEAD
+  if (profile.role === 'aslab') {
+    return { role: 'aslab', aslab: { id: profile.uid, nama: profile.name } };
+  }
+  if (profile.role === 'asprak') {
+    return { role: 'asprak', asprak: { id: profile.uid, nama: profile.name } };
+  }
+  if (profile.role === 'asisten') {
+    return { role: 'asisten', asisten: { id: profile.uid, nama: profile.name } };
+=======
   if (!isRole(profile.role)) throw new AppAuthError('app/role-needs-migration', 'Peran akun belum didukung.');
   if (profile.role !== 'praktikan') {
     return { role: profile.role, asisten: { id: profile.uid, nama: profile.name } };
+>>>>>>> origin/main
   }
   return {
     role: 'praktikan',

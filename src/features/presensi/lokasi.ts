@@ -85,7 +85,7 @@ export function pesanHasilLokasi(hasil: HasilLokasi): string {
     case 'kurang_akurat':
       return `Sinyal lokasi kurang akurat (±${formatMeter(hasil.akurasi)}). Coba dekat jendela atau nyalakan WiFi, lalu periksa lagi.`;
     case 'lab_belum_diatur':
-      return 'Lokasi laboratorium untuk sesi ini belum diatur asisten, jadi presensi belum bisa diajukan.';
+      return 'Lokasi laboratorium untuk sesi ini belum diatur aslab, jadi presensi belum bisa diajukan.';
     case 'lab_gagal_dimuat':
       return hasil.pesan;
     case 'izin_ditolak':

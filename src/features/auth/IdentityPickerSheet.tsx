@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 
 import { BottomSheet } from '../../components/BottomSheet';
@@ -13,24 +13,34 @@ interface Props {
   onClose: () => void;
 }
 
-/** Memilih akun dummy sesuai peran, menggantikan login karena belum ada backend. */
+/** Memilih akun dummy sesuai peran untuk mode demo pengembangan. */
 export function IdentityPickerSheet({ role, onClose }: Props) {
   const { asistenList, praktikanList, masuk } = usePrakti();
   const [query, setQuery] = useState('');
 
-  useEffect(() => {
-    if (role === null) setQuery('');
-  }, [role]);
+  const handleClose = () => {
+    setQuery('');
+    onClose();
+  };
 
   const praktikanTersaring = useMemo(() => {
     const q = query.trim().toLowerCase();
     return praktikanList.filter((p) => p.nama.toLowerCase().includes(q) || p.nim.includes(q));
   }, [praktikanList, query]);
 
+<<<<<<< HEAD
+  const judul =
+    role === 'aslab'
+      ? 'Pilih akun Aslab'
+      : role === 'asprak' || role === 'asisten'
+        ? 'Pilih akun Asprak'
+        : 'Pilih akun praktikan';
+=======
   const judul = role === 'asprak' ? 'Pilih akun asisten' : 'Pilih akun praktikan';
+>>>>>>> origin/main
 
   return (
-    <BottomSheet visible={role !== null} title={judul} onClose={onClose}>
+    <BottomSheet visible={role !== null} title={judul} onClose={handleClose}>
       {role === 'praktikan' ? (
         <TextInput
           value={query}
@@ -41,16 +51,42 @@ export function IdentityPickerSheet({ role, onClose }: Props) {
         />
       ) : null}
       <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
+<<<<<<< HEAD
+        {role === 'aslab' &&
+=======
         {role === 'asprak' &&
+>>>>>>> origin/main
           asistenList.map((a) => (
             <Pressable
               key={a.id}
               accessibilityRole="button"
+<<<<<<< HEAD
+              onPress={() => {
+                setQuery('');
+                masuk({ role: 'aslab', aslab: a }, true);
+              }}
+=======
               onPress={() => masuk({ role: 'asprak', asisten: a }, true)}
+>>>>>>> origin/main
               style={styles.item}
             >
               <Text style={styles.name}>{a.nama}</Text>
-              <Text style={styles.meta}>Asisten praktikum</Text>
+              <Text style={styles.meta}>Aslab (Pengelola Laboratorium)</Text>
+            </Pressable>
+          ))}
+        {(role === 'asprak' || role === 'asisten') &&
+          asistenList.map((a) => (
+            <Pressable
+              key={a.id}
+              accessibilityRole="button"
+              onPress={() => {
+                setQuery('');
+                masuk({ role: 'asprak', asprak: a }, true);
+              }}
+              style={styles.item}
+            >
+              <Text style={styles.name}>{a.nama}</Text>
+              <Text style={styles.meta}>Asprak (Pengampu Sesi)</Text>
             </Pressable>
           ))}
         {role === 'praktikan' &&
@@ -58,7 +94,10 @@ export function IdentityPickerSheet({ role, onClose }: Props) {
             <Pressable
               key={p.id}
               accessibilityRole="button"
-              onPress={() => masuk({ role: 'praktikan', praktikan: p }, true)}
+              onPress={() => {
+                setQuery('');
+                masuk({ role: 'praktikan', praktikan: p }, true);
+              }}
               style={styles.item}
             >
               <Text style={styles.name}>{toTitleCase(p.nama)}</Text>

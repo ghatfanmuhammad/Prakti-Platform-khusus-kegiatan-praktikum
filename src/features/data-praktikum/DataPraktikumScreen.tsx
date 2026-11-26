@@ -112,7 +112,11 @@ export function DataPraktikumScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.screen}>
       <AppHeader subtitle="Data Praktikum" onBack={onBack} />
+<<<<<<< HEAD
+      <PracticumWorkspace assistant={currentUser.role === 'aslab' || currentUser.role === 'asisten'} />
+=======
       <PracticumWorkspace role={currentUser.role} />
+>>>>>>> origin/main
     </View>
   );
 }
@@ -400,11 +404,16 @@ function PracticumWorkspace({ role }: { role: Role }) {
               message={
                 !classId && kind !== 'kelas'
                   ? assistant
+<<<<<<< HEAD
+                    ? 'Buka tab Kelas untuk menambahkan kelas praktikum.'
+                    : 'Hubungi Aslab untuk mendaftarkan akun Anda ke kelas.'
+=======
                     ? (role === 'aslab' ? 'Buka tab Kelas untuk menambahkan kelas praktikum.' : 'Belum ada penugasan kelas. Hubungi Aslab untuk penugasan Asprak.')
                     : 'Hubungi asisten untuk mendaftarkan akun Anda ke kelas.'
+>>>>>>> origin/main
                   : assistant
                     ? `Gunakan tombol Tambah ${LABELS[kind].toLowerCase()} untuk memulai.`
-                    : 'Data akan tampil setelah ditambahkan oleh asisten.'
+                    : 'Data akan tampil setelah ditambahkan oleh Aslab.'
               }
             />
           )

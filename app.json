@@ -49,7 +49,11 @@
           "locationWhenInUsePermission": "Izinkan PRAKTI memakai lokasimu untuk memastikan kamu berada di laboratorium saat presensi."
         }
       ],
+<<<<<<< HEAD
+      "expo-sharing"
+=======
       "expo-router"
+>>>>>>> origin/main
     ],
     "extra": {
       "eas": {

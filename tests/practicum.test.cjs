@@ -74,8 +74,12 @@ const { validateForm, assertScheduleDate } = load('validation');
 beforeEach(() => {
   documents = new Map([
     ['users/assistant', { role: 'aslab' }],
+<<<<<<< HEAD
+    ['users/another', { role: 'aslab' }],
+=======
     ['users/operator', { role: 'asprak' }],
     ['users/another', { role: 'asprak' }],
+>>>>>>> origin/main
     ['users/student', { role: 'praktikan' }],
   ]);
   user = { uid: 'assistant' };
@@ -225,8 +229,13 @@ test('opened sessions retain history and closed sessions are terminal', async ()
   const sessionId = await makeSession(classId, scheduleId);
   const codePath = `sessionCodes/${classId}~${sessionId}`;
   user = { uid: 'another' };
+<<<<<<< HEAD
+  await assert.rejects(repository.changeSessionStatus(classId, sessionId, 'dibuka'), /diampu asprak lain/);
+  user = { uid: 'assistant' };
+=======
   await assert.rejects(repository.changeSessionStatus(classId, sessionId, 'dibuka'), /diampu asisten lain/);
   user = { uid: 'operator' };
+>>>>>>> origin/main
   await repository.changeSessionStatus(classId, sessionId, 'dibuka', 'Topik uji');
   assert.equal(documents.get(codePath).kode, '4829');
   assert.equal(documents.get(`classes/${classId}/sessions/${sessionId}`).topik, 'Topik uji');

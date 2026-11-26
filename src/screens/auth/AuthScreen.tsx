@@ -32,17 +32,14 @@ export function AuthScreen({ onBypassDemo }: Props) {
   const insets = useSafeAreaInsets();
   const { masuk } = usePrakti();
 
-  // Mode: 'login' | 'register'
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
-  // Input states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('praktikan');
   const [nimOrCode, setNimOrCode] = useState('');
 
-  // UI status
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -61,7 +58,15 @@ export function AuthScreen({ onBypassDemo }: Props) {
       }
       if (!nimOrCode.trim()) {
         setErrorMessage(
+<<<<<<< HEAD
+          role === 'praktikan'
+            ? 'NIM wajib diisi.'
+            : role === 'aslab'
+              ? 'Kode Aslab wajib diisi.'
+              : 'Kode Asprak wajib diisi.',
+=======
           role === 'praktikan' ? 'NIM wajib diisi.' : 'Kode Staf wajib diisi.',
+>>>>>>> origin/main
         );
         return;
       }
@@ -70,7 +75,6 @@ export function AuthScreen({ onBypassDemo }: Props) {
     setLoading(true);
 
     try {
-      // Simpan ke state global aplikasi sesuai tipe CurrentUser
       const profile =
         mode === 'login'
           ? await loginUser(email, password)
@@ -93,13 +97,11 @@ export function AuthScreen({ onBypassDemo }: Props) {
       style={styles.root}
     >
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl }]}>
-        {/* Header Logo */}
         <View style={styles.header}>
           <Text style={styles.logo}>PRAKTI</Text>
           <Text style={styles.tagline}>Autentikasi Kegiatan Praktikum</Text>
         </View>
 
-        {/* Tab Toggle Login / Register */}
         <View style={styles.tabContainer}>
           <Pressable
             style={[styles.tabBtn, mode === 'login' && styles.tabBtnActive]}
@@ -125,7 +127,6 @@ export function AuthScreen({ onBypassDemo }: Props) {
           </Pressable>
         </View>
 
-        {/* Error Banner */}
         {errorMessage ? (
           <View style={styles.errorBox}>
             <Ionicons name="alert-circle" size={20} color={colors.danger} />
@@ -133,38 +134,101 @@ export function AuthScreen({ onBypassDemo }: Props) {
           </View>
         ) : null}
 
-        {/* Form Card */}
         <View style={styles.formCard}>
           {mode === 'register' && (
             <>
-              {/* Pilihan Peran */}
               <Text style={styles.fieldLabel}>Peran Pengguna:</Text>
               <View style={styles.roleToggleRow}>
+<<<<<<< HEAD
+                <Pressable
+                  style={[styles.roleBtn, role === 'praktikan' && styles.roleBtnActive]}
+                  onPress={() => setRole('praktikan')}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={18}
+                    color={role === 'praktikan' ? colors.surface : colors.navy}
+                  />
+                  <Text
+                    style={[
+                      styles.roleBtnText,
+                      role === 'praktikan' && styles.roleBtnTextActive,
+                    ]}
+                  >
+                    Praktikan
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.roleBtn, role === 'asprak' && styles.roleBtnActive]}
+                  onPress={() => setRole('asprak')}
+                >
+                  <Ionicons
+                    name="school-outline"
+                    size={18}
+                    color={role === 'asprak' ? colors.surface : colors.navy}
+                  />
+                  <Text
+                    style={[styles.roleBtnText, role === 'asprak' && styles.roleBtnTextActive]}
+                  >
+                    Asprak
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.roleBtn, role === 'aslab' && styles.roleBtnActive]}
+                  onPress={() => setRole('aslab')}
+                >
+                  <Ionicons
+                    name="business-outline"
+                    size={18}
+                    color={role === 'aslab' ? colors.surface : colors.navy}
+                  />
+                  <Text
+                    style={[styles.roleBtnText, role === 'aslab' && styles.roleBtnTextActive]}
+                  >
+                    Aslab
+                  </Text>
+                </Pressable>
+=======
                 {(['praktikan', 'asprak', 'aslab'] as const).map((value) => (
                   <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: role === value }}
                     style={[styles.roleBtn, role === value && styles.roleBtnActive]} onPress={() => setRole(value)}>
                     <Text style={[styles.roleBtnText, role === value && styles.roleBtnTextActive]}>{ROLE_LABELS[value]}</Text>
                   </Pressable>
                 ))}
+>>>>>>> origin/main
               </View>
 
-              {/* Input Nama */}
               <Text style={styles.fieldLabel}>Nama Lengkap:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="cth. Ghatfan Muhammad"
+                placeholder="cth. Felicia Amanda"
                 placeholderTextColor={colors.textSecondary}
                 value={name}
                 onChangeText={setName}
               />
 
-              {/* Input NIM / Kode */}
               <Text style={styles.fieldLabel}>
+<<<<<<< HEAD
+                {role === 'praktikan'
+                  ? 'Nomor Induk Mahasiswa (NIM):'
+                  : role === 'aslab'
+                    ? 'Kode Aslab:'
+                    : 'Kode Asprak:'}
+=======
                 {role === 'praktikan' ? 'Nomor Induk Mahasiswa (NIM):' : 'Kode Staf:'}
+>>>>>>> origin/main
               </Text>
               <TextInput
                 style={styles.input}
-                placeholder={role === 'praktikan' ? 'cth. 1301213000' : 'cth. AST-01'}
+                placeholder={
+                  role === 'praktikan'
+                    ? 'cth. 1301213000'
+                    : role === 'aslab'
+                      ? 'cth. ASL-01'
+                      : 'cth. ASP-01'
+                }
                 placeholderTextColor={colors.textSecondary}
                 value={nimOrCode}
                 onChangeText={setNimOrCode}
@@ -172,7 +236,6 @@ export function AuthScreen({ onBypassDemo }: Props) {
             </>
           )}
 
-          {/* Input Email */}
           <Text style={styles.fieldLabel}>Email:</Text>
           <TextInput
             style={styles.input}
@@ -184,7 +247,6 @@ export function AuthScreen({ onBypassDemo }: Props) {
             onChangeText={setEmail}
           />
 
-          {/* Input Password */}
           <Text style={styles.fieldLabel}>Kata Sandi:</Text>
           <TextInput
             style={styles.input}
@@ -195,7 +257,6 @@ export function AuthScreen({ onBypassDemo }: Props) {
             onChangeText={setPassword}
           />
 
-          {/* Tombol Submit */}
           <Pressable
             disabled={loading}
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
@@ -211,10 +272,9 @@ export function AuthScreen({ onBypassDemo }: Props) {
           </Pressable>
         </View>
 
-        {/* Opsi Beralih ke Mode Demo (Fallback Sprint 1) — hanya di build development */}
         {__DEV__ && onBypassDemo && (
           <Pressable style={styles.bypassBtn} onPress={onBypassDemo}>
-            <Text style={styles.bypassText}>Gunakan Data Dummy Demo (Sprint 1) &rarr;</Text>
+            <Text style={styles.bypassText}>Gunakan Data Dummy Demo &rarr;</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -278,14 +338,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
-  roleToggleRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  roleToggleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
   roleBtn: {
-    flex: 1,
+    flexGrow: 1,
+    minWidth: 92,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
+    paddingHorizontal: spacing.sm,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,

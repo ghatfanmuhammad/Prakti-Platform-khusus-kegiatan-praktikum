@@ -15,11 +15,35 @@ export function participantId(classId: string, uid: string) {
 }
 export function validateForm(kind: Kind, values: FormValues): FormValues {
   switch (kind) {
-    case 'kelas':
-      return {
+    case 'kelas': {
+      const result: FormValues = {
         kode: required(values, 'kode', 'Kode kelas', 40),
         namaPraktikum: required(values, 'namaPraktikum', 'Nama praktikum', 120),
       };
+      if (values.namaLab !== undefined && values.namaLab.trim() !== '') {
+        result.namaLab = required(values, 'namaLab', 'Nama Lab', 120);
+      }
+      if (values.labId !== undefined && values.labId.trim() !== '') {
+        const labId = required(values, 'labId', 'Laboratorium', 40);
+        if (!validId(labId)) throw new Error('ID laboratorium tidak valid.');
+        result.labId = labId;
+      }
+      if (values.toleransiMenit !== undefined && values.toleransiMenit.trim() !== '') {
+        const toleransi = Number(values.toleransiMenit.trim());
+        if (!/^\d+$/.test(values.toleransiMenit.trim()) || toleransi < 0 || toleransi > 120) {
+          throw new Error('Toleransi keterlambatan harus 0–120 menit.');
+        }
+        result.toleransiMenit = String(toleransi);
+      }
+      if (values.nominalDenda !== undefined && values.nominalDenda.trim() !== '') {
+        const nominal = Number(values.nominalDenda.trim());
+        if (!/^\d+$/.test(values.nominalDenda.trim()) || nominal <= 0) {
+          throw new Error('Nominal denda harus lebih dari 0.');
+        }
+        result.nominalDenda = String(nominal);
+      }
+      return result;
+    }
     case 'peserta': {
       const uid = required(values, 'uid', 'UID akun praktikan', 128);
       if (!validId(uid))

@@ -22,7 +22,8 @@ export async function saveAttendance(sesi: Sesi, uid: string, input: string, lok
 
     if (current.data().status !== 'dibuka') return { ok: false, reason: 'SESI_BELUM_DIBUKA' } as const;
     const schedule = await tx.get(doc(db, 'classes', sesi.classId!, 'schedules', current.data().scheduleId));
-    const labId = schedule.data()?.labId;
+    const classSnapshot = await tx.get(doc(db, 'classes', sesi.classId!));
+    const labId = schedule.data()?.labId ?? classSnapshot.data()?.labId;
     if (!labId || !lokasi || lokasi.jenis !== 'dalam_radius' || lokasi.lab.id !== labId) {
       throw new Error('Laboratorium berubah atau belum diatur. Periksa lokasi lagi.');
     }
