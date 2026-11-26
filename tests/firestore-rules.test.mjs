@@ -32,7 +32,7 @@ const { bacaIsiQr, buatIsiQr } = load(new URL('../src/utils/qr.ts', import.meta.
 const lab = { id: 'lab-1', nama: 'Lab 1', lat: -6.2, lng: 106.8, radiusMeter: 50 };
 const posisi = { lat: lab.lat, lng: lab.lng, akurasi: 10 };
 const lokasi = { labId: lab.id, ...posisi };
-let assistant, student, anonymous;
+let assistant, student, anonymous, labOwner;
 const denied = (operation) =>
   assert.rejects(operation, (error) => error.code === 'permission-denied');
 function client(uid) {
@@ -53,6 +53,7 @@ function client(uid) {
 }
 const klass = (kode) => ({
   kode,
+  aslabUid: 'aslab',
   namaPraktikum: 'Basis Data',
   participantCount: 0,
   scheduleCount: 0,
@@ -95,7 +96,9 @@ before(async () => {
   assert.equal(cleared.ok, true);
   const admin = client('owner');
   const seed = writeBatch(admin);
-  seed.set(doc(admin, 'users/assistant'), { role: 'asisten' });
+  seed.set(doc(admin, 'users/aslab'), { role: 'aslab' });
+  for (const classId of ['own', 'other']) seed.set(doc(admin, 'pengampu', `${classId}~assistant`), { classId, uid: 'assistant', createdAt: Timestamp.now() });
+  seed.set(doc(admin, 'users/assistant'), { role: 'asprak' });
   seed.set(doc(admin, 'users/student'), { role: 'praktikan' });
   seed.set(doc(admin, 'users/other'), { role: 'praktikan' });
   seed.set(doc(admin, 'classes/own'), {
@@ -136,6 +139,7 @@ before(async () => {
   seed.set(doc(admin, 'laboratories', lab.id), lab);
   await seed.commit();
   assistant = client('assistant');
+  labOwner = client('aslab');
   student = client('student');
   anonymous = client();
 });
@@ -157,6 +161,7 @@ test('four notification events commit to Firestore and target only class members
   await setDoc(sessionRef, session);
   const firebase = { db: assistant, auth: { currentUser: { uid: 'assistant' } } };
   process.env.GCLOUD_PROJECT = projectId;
+  process.env.FIREBASE_CONFIG = JSON.stringify({ projectId });
   const serverRequire = createRequire(new URL('../functions/package.json', import.meta.url));
   const { kirimNotifikasi } = serverRequire('./lib/functions/src/index.js');
   const serverCall = (uid, data) => kirimNotifikasi.run({ data, auth: uid ? { uid } : undefined });
@@ -184,7 +189,7 @@ test('four notification events commit to Firestore and target only class members
   try {
     await denied(getDoc(doc(assistant, 'pushTokens/student')));
     await denied(getDocs(collection(assistant, 'pushTokens')));
-    for (const uid of [undefined, 'student']) {
+    for (const uid of [undefined, 'student', 'aslab']) {
       await assert.rejects(serverCall(uid, { jenis: 'jadwal_berubah', classId: 'own', scheduleId: 'schedule' }),
         (error) => error.code === 'permission-denied');
     }
@@ -208,7 +213,7 @@ test('four notification events commit to Firestore and target only class members
     for (const status of ['Disetujui', 'Ditolak']) {
       const izinId = `notify-${status}`;
       const permit = doc(admin, 'izin', izinId);
-      await setDoc(permit, { praktikanId: 'student', sesiNama: 'Basis Data OWN', status: 'Menunggu' });
+      await setDoc(permit, { praktikanId: 'student', sesiNama: 'Basis Data OWN', sesiId: 'own~notify', status: 'Menunggu' });
       const result = await api.periksaIzinDenganNotifikasi(izinId, status, { uid: 'assistant', nama: 'Asisten' });
       assert.equal((await getDoc(permit)).data().status, status);
       assert.equal(result.terkirim, 1);
@@ -232,7 +237,7 @@ test('four notification events commit to Firestore and target only class members
 
 test('anonymous cannot read data or self-create an assistant profile', options, async () => {
   await denied(getDoc(doc(anonymous, 'classes/own')));
-  await denied(setDoc(doc(anonymous, 'users/new'), { role: 'asisten' }));
+  await denied(setDoc(doc(anonymous, 'users/new'), { role: 'asprak' }));
 });
 test(
   'student reads only their own classes, schedules, sessions, and memberships',
@@ -254,7 +259,7 @@ test(
   },
 );
 test('student cannot write data, enroll themselves, or promote their role', options, async () => {
-  await denied(updateDoc(doc(student, 'users/student'), { role: 'asisten' }));
+  await denied(updateDoc(doc(student, 'users/student'), { role: 'asprak' }));
   await denied(
     updateDoc(doc(student, 'classes/own'), {
       kode: 'HACK',
@@ -279,10 +284,10 @@ test('student cannot write data, enroll themselves, or promote their role', opti
   );
 });
 test(
-  'assistant creates valid data; enrollment must update parent counters atomically',
+  'labOwner creates valid data; enrollment must update parent counters atomically',
   options,
   async () => {
-    await setDoc(doc(assistant, 'classes/new'), {
+    await setDoc(doc(labOwner, 'classes/new'), {
       ...klass('NEW'),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -295,26 +300,27 @@ test(
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
-    await denied(setDoc(doc(assistant, 'participants/new~other'), participant));
-    const batch = writeBatch(assistant);
-    batch.set(doc(assistant, 'participants/new~other'), participant);
-    batch.update(doc(assistant, 'classes/new'), {
+    await denied(setDoc(doc(labOwner, 'participants/new~other'), participant));
+    const batch = writeBatch(labOwner);
+    batch.set(doc(labOwner, 'participants/new~other'), participant);
+    batch.update(doc(labOwner, 'classes/new'), {
       participantCount: 1,
       lastChildId: 'new~other',
       updatedAt: serverTimestamp(),
     });
     await batch.commit();
-    assert.equal((await getDoc(doc(assistant, 'participants/new~other'))).exists(), true);
+    assert.equal((await getDoc(doc(labOwner, 'participants/new~other'))).exists(), true);
   },
 );
 test('assistant creates and deletes a scheduled session in atomic writes', options, async () => {
-  const classRef = doc(assistant, 'classes/crud');
+  const classRef = doc(labOwner, 'classes/crud');
   await setDoc(classRef, { ...klass('CRUD'), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await setDoc(doc(labOwner, 'pengampu/crud~assistant'), { classId: 'crud', uid: 'assistant', createdAt: serverTimestamp() });
   const scheduleRef = doc(assistant, 'classes/crud/schedules/thursday');
   const session = doc(assistant, 'classes/crud/sessions/first');
   const addSchedule = writeBatch(assistant);
   addSchedule.set(scheduleRef, { ...schedule(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-  addSchedule.update(classRef, { scheduleCount: 1, lastChildId: 'thursday', updatedAt: serverTimestamp() });
+  addSchedule.update(doc(assistant, classRef.path), { scheduleCount: 1, lastChildId: 'thursday', updatedAt: serverTimestamp() });
   await addSchedule.commit();
 
   const addSession = writeBatch(assistant);
@@ -329,7 +335,7 @@ test('assistant creates and deletes a scheduled session in atomic writes', optio
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  addSession.update(classRef, { sessionCount: 1, lastChildId: 'first', updatedAt: serverTimestamp() });
+  addSession.update(doc(assistant, classRef.path), { sessionCount: 1, lastChildId: 'first', updatedAt: serverTimestamp() });
   addSession.update(scheduleRef, { sessionCount: 1, lastSessionId: 'first', updatedAt: serverTimestamp() });
   await addSession.commit();
   await updateDoc(session, { modul: 'Modul 2', updatedAt: serverTimestamp() });
@@ -337,7 +343,7 @@ test('assistant creates and deletes a scheduled session in atomic writes', optio
 
   const removeSession = writeBatch(assistant);
   removeSession.delete(session);
-  removeSession.update(classRef, { sessionCount: 0, lastChildId: 'first', updatedAt: serverTimestamp() });
+  removeSession.update(doc(assistant, classRef.path), { sessionCount: 0, lastChildId: 'first', updatedAt: serverTimestamp() });
   removeSession.update(scheduleRef, { sessionCount: 0, lastSessionId: 'first', updatedAt: serverTimestamp() });
   await removeSession.commit();
   assert.equal((await getDoc(session)).exists(), false);
@@ -416,7 +422,7 @@ test('push tokens are private to their student owner; assistants cannot get or l
   await deleteDoc(own);
 });
 test(
-  'laboratories: assistants can write, students and assistants can read, anonymous is denied',
+  'laboratories: public centers remain readable, coordinate writes await ownership integration',
   options,
   async () => {
     const labRef = doc(assistant, 'laboratories/lab-test');
@@ -424,11 +430,13 @@ test(
     await denied(setDoc(doc(anonymous, 'laboratories/lab-test'), { nama: 'Lab Anon' }));
     await denied(setDoc(doc(student, 'laboratories/lab-test'), { nama: 'Lab Mhs' }));
 
-    await setDoc(labRef, { nama: 'Lab Test', lat: -6.2, lng: 106.8, radiusMeter: 50 });
+    await denied(setDoc(labRef, { nama: 'Lab Test', lat: -6.2, lng: 106.8, radiusMeter: 50 }));
+    await setDoc(doc(client('owner'), 'laboratories/lab-test'), { nama: 'Lab Test', lat: -6.2, lng: 106.8, radiusMeter: 50 });
     assert.equal((await getDoc(doc(student, 'laboratories/lab-test'))).exists(), true);
     assert.equal((await getDoc(doc(assistant, 'laboratories/lab-test'))).exists(), true);
 
-    await updateDoc(labRef, { nama: 'Lab Test Updated' });
+    await denied(updateDoc(labRef, { nama: 'Lab Test Updated' }));
+    await updateDoc(doc(client('owner'), 'laboratories/lab-test'), { nama: 'Lab Test Updated' });
     assert.equal(
       (await getDoc(doc(student, 'laboratories/lab-test'))).data().nama,
       'Lab Test Updated',
@@ -436,7 +444,8 @@ test(
     await denied(updateDoc(doc(student, 'laboratories/lab-test'), { nama: 'Lab Hack' }));
 
     await denied(deleteDoc(doc(student, 'laboratories/lab-test')));
-    await deleteDoc(labRef);
+    await denied(deleteDoc(labRef));
+    await deleteDoc(doc(client('owner'), 'laboratories/lab-test'));
     assert.equal((await getDoc(doc(assistant, 'laboratories/lab-test'))).exists(), false);
   },
 );
@@ -445,12 +454,13 @@ test(
   'assistant can create and edit schedule with labId; schedules without labId remain valid',
   options,
   async () => {
-    const classRef = doc(assistant, 'classes/lab-sched');
+    const classRef = doc(labOwner, 'classes/lab-sched');
     await setDoc(classRef, {
       ...klass('LS'),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    await setDoc(doc(labOwner, 'pengampu/lab-sched~assistant'), { classId: 'lab-sched', uid: 'assistant', createdAt: serverTimestamp() });
     const schedRef = doc(assistant, 'classes/lab-sched/schedules/friday');
 
     const addSchedule = writeBatch(assistant);
@@ -461,7 +471,7 @@ test(
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    addSchedule.update(classRef, {
+    addSchedule.update(doc(assistant, classRef.path), {
       scheduleCount: 1,
       lastChildId: 'friday',
       updatedAt: serverTimestamp(),
@@ -535,7 +545,7 @@ for (const metode of ['qr', 'manual']) {
     const privateOriginal = (await getDoc(privateRef)).data();
     assert.deepEqual(privateOriginal.lokasi, lokasi);
     assert.deepEqual((await getDoc(doc(assistant, 'attendance', target.id))).data(), original);
-    const recap = await getDocs(collection(assistant, 'attendance'));
+    const recap = await getDocs(query(collection(assistant, 'attendance'), where('classId', '==', 'own')));
     assert.ok(recap.docs.some((row) => row.id === target.id), 'assistant recap remains queryable');
     assert.ok(recap.docs.every((row) => !Object.hasOwn(row.data(), 'lokasi')));
     for (const account of [assistant, anonymous, client('other')]) {

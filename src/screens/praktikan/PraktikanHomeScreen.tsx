@@ -1,6 +1,3 @@
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import type { CompositeScreenProps } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '../../components/AppHeader';
@@ -18,16 +15,13 @@ import { StatusNotifikasiCard } from '../../features/notifikasi/StatusNotifikasi
 import { useCheckInFlow } from '../../features/praktikan/CheckInFlow';
 import { PraktikanSessionPanel } from '../../features/praktikan/PraktikanSessionPanel';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
-import type { AppStackParamList, TabParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme';
 import { formatTanggalRelatif } from '../../utils/date';
 import { sesiBerikutnya, sesiUtama, statistikKehadiran } from '../../utils/selectors';
 import { toTitleCase } from '../../utils/text';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<TabParamList, 'Beranda'>,
-  NativeStackScreenProps<AppStackParamList>
->;
+type Props = ScreenProps<'Tabs'>;
 
 export function PraktikanHomeScreen({ navigation }: Props) {
   const praktikan = useCurrentPraktikan();

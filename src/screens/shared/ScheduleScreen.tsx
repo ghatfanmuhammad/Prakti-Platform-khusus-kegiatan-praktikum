@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
@@ -11,7 +10,7 @@ import { SessionCard } from '../../components/SessionCard';
 import { usePrakti } from '../../context/PraktiContext';
 import { DataPraktikumScreen } from '../../features/data-praktikum/DataPraktikumScreen';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
-import type { AppStackParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme';
 import { cariPresensi, presensiSesi, sesiMilikAsisten, urutkanSesi } from '../../utils/selectors';
 
@@ -24,7 +23,7 @@ const OPSI: ChipOption<Filter>[] = [
   { key: 'ditutup', label: 'Ditutup' },
 ];
 
-type Props = NativeStackScreenProps<AppStackParamList, 'Schedule'>;
+type Props = ScreenProps<'Schedule'>;
 
 export function ScheduleScreen({ navigation }: Props) {
   const { currentUser, sesi, presensi, pesertaSesi, practicum, retryPracticum } = usePrakti();
@@ -32,7 +31,7 @@ export function ScheduleScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<Filter>('semua');
 
   const milik =
-    currentUser?.role === 'asisten' && !practicum
+    currentUser?.role === 'asprak' && !practicum
       ? sesiMilikAsisten(sesi, currentUser.asisten.id)
       : urutkanSesi(sesi);
   const data = filter === 'semua' ? milik : milik.filter((s) => s.status === filter);
@@ -46,9 +45,14 @@ export function ScheduleScreen({ navigation }: Props) {
       <AppHeader subtitle="Jadwal Praktikum" onBack={navigation.goBack} />
       {practicum ? (
         <Button
+<<<<<<< HEAD
           label={currentUser?.role === 'aslab' ? 'Kelola data praktikum' : 'Lihat jadwal per kelas'}
           icon={currentUser?.role === 'aslab' ? 'settings-outline' : 'list-outline'}
 
+=======
+          label={currentUser?.role === 'asprak' ? 'Kelola data praktikum' : 'Lihat jadwal per kelas'}
+          icon={currentUser?.role === 'asprak' ? 'settings-outline' : 'list-outline'}
+>>>>>>> origin/main
           variant="outline"
           style={styles.manage}
           onPress={() => setShowData(true)}
@@ -73,7 +77,11 @@ export function ScheduleScreen({ navigation }: Props) {
             }
             renderItem={({ item }) => {
               let footer = null;
+<<<<<<< HEAD
               if (currentUser?.role === 'aslab' || currentUser?.role === 'asprak' || currentUser?.role === 'asisten') {
+=======
+              if (currentUser?.role === 'asprak') {
+>>>>>>> origin/main
                 footer = (
                   <Text style={styles.footer}>
                     {presensiSesi(presensi, item.id).length}/{pesertaSesi(item).length} hadir

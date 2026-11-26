@@ -6,9 +6,12 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+<<<<<<< HEAD
   where,
   type DocumentData,
   type DocumentReference,
+=======
+>>>>>>> origin/main
   type DocumentSnapshot,
   type Transaction,
 } from 'firebase/firestore';
@@ -37,11 +40,28 @@ function context() {
   if (!user) throw new Error('Silakan masuk kembali sebelum mengubah data.');
   return { db, user };
 }
+<<<<<<< HEAD
 
 async function requireAslab(tx: Transaction, ref: DocumentReference) {
   const profile = await tx.get(ref);
   if (profile.data()?.role !== 'aslab') {
     throw new Error('Hanya Aslab yang dapat mengelola data praktikum.');
+=======
+async function requireAccess(tx: Transaction, uid: string, classId: string | null, ownerOnly: boolean) {
+  const profile = await tx.get(doc(db, 'users', uid));
+  const role = profile.data()?.role;
+  if (!classId) {
+    if (role !== 'aslab') throw new Error('Hanya Aslab yang dapat mengelola Lab/kelas.');
+    return;
+  }
+  const klass = await tx.get(doc(db, 'classes', classId));
+  if (ownerOnly) {
+    if (role !== 'aslab' || klass.data()?.aslabUid !== uid) throw new Error('Hanya Aslab pemilik kelas yang dapat mengubah data ini.');
+  } else {
+    const assignment = await tx.get(doc(db, 'pengampu', `${classId}~${uid}`));
+    if (role !== 'asprak' || assignment.data()?.classId !== classId || assignment.data()?.uid !== uid)
+      throw new Error('Hanya Asprak yang ditugaskan pada kelas ini yang dapat mengelola kegiatan.');
+>>>>>>> origin/main
   }
 }
 
@@ -103,7 +123,11 @@ export async function saveRecord(
         : {}),
     };
     await runTransaction(db, async (tx) => {
+<<<<<<< HEAD
       await requireAslab(tx, doc(db, 'users', user.uid));
+=======
+      await requireAccess(tx, user.uid, recordId, true);
+>>>>>>> origin/main
       const existing = await tx.get(ref);
       if (recordId && !existing.exists())
         throw new Error('Kelas sudah dihapus. Muat ulang daftar.');
@@ -112,7 +136,11 @@ export async function saveRecord(
       if (recordId) tx.update(ref, { ...classPayload, updatedAt: now });
       else
         tx.set(ref, {
+<<<<<<< HEAD
           ...classPayload,
+=======
+          ...values,
+>>>>>>> origin/main
           aslabUid: user.uid,
           participantCount: 0,
           scheduleCount: 0,
@@ -132,7 +160,11 @@ export async function saveRecord(
       : doc(collection(parent, kind === 'jadwal' ? 'schedules' : 'sessions')).id);
   const ref = targetRef(kind, classId, id);
   await runTransaction(db, async (tx) => {
+<<<<<<< HEAD
     await requireAslab(tx, doc(db, 'users', user.uid));
+=======
+    await requireAccess(tx, user.uid, classId, kind === 'peserta');
+>>>>>>> origin/main
     const classSnapshot = await tx.get(parent);
     const current = await tx.get(ref);
     if (!classSnapshot.exists()) throw new Error('Kelas sudah dihapus. Muat ulang daftar.');
@@ -223,7 +255,11 @@ export async function deleteRecord(kind: Kind, classId: string | null, id: strin
     throw new Error('Data tidak valid. Muat ulang daftar.');
   const ref = kind === 'kelas' ? doc(db, 'classes', id) : targetRef(kind, classId!, id);
   await runTransaction(db, async (tx) => {
+<<<<<<< HEAD
     await requireAslab(tx, doc(db, 'users', user.uid));
+=======
+    await requireAccess(tx, user.uid, kind === 'kelas' ? id : classId, kind === 'kelas' || kind === 'peserta');
+>>>>>>> origin/main
     const current = await tx.get(ref);
     if (!current.exists()) throw new Error('Data sudah dihapus. Muat ulang daftar.');
     if (kind === 'kelas') {
@@ -282,7 +318,11 @@ export async function changeSessionStatus(
   const codeRef = doc(db, 'sessionCodes', `${classId}~${sessionId}`);
   const kode = buatKodeSesi();
   await runTransaction(db, async (tx) => {
+<<<<<<< HEAD
     await requireSessionManager(tx, doc(db, 'users', user.uid));
+=======
+    await requireAccess(tx, user.uid, classId, false);
+>>>>>>> origin/main
     const current = await tx.get(ref);
     if (!current.exists()) throw new Error('Sesi sudah dihapus.');
     const session = current.data() as PracticumSession;

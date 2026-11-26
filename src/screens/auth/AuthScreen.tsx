@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ROLE_LABELS } from '../../features/auth/roles';
 import { usePrakti } from '../../context/PraktiContext';
 import {
   formatAuthError,
@@ -57,11 +58,15 @@ export function AuthScreen({ onBypassDemo }: Props) {
       }
       if (!nimOrCode.trim()) {
         setErrorMessage(
+<<<<<<< HEAD
           role === 'praktikan'
             ? 'NIM wajib diisi.'
             : role === 'aslab'
               ? 'Kode Aslab wajib diisi.'
               : 'Kode Asprak wajib diisi.',
+=======
+          role === 'praktikan' ? 'NIM wajib diisi.' : 'Kode Staf wajib diisi.',
+>>>>>>> origin/main
         );
         return;
       }
@@ -134,6 +139,7 @@ export function AuthScreen({ onBypassDemo }: Props) {
             <>
               <Text style={styles.fieldLabel}>Peran Pengguna:</Text>
               <View style={styles.roleToggleRow}>
+<<<<<<< HEAD
                 <Pressable
                   style={[styles.roleBtn, role === 'praktikan' && styles.roleBtnActive]}
                   onPress={() => setRole('praktikan')}
@@ -184,6 +190,14 @@ export function AuthScreen({ onBypassDemo }: Props) {
                     Aslab
                   </Text>
                 </Pressable>
+=======
+                {(['praktikan', 'asprak', 'aslab'] as const).map((value) => (
+                  <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: role === value }}
+                    style={[styles.roleBtn, role === value && styles.roleBtnActive]} onPress={() => setRole(value)}>
+                    <Text style={[styles.roleBtnText, role === value && styles.roleBtnTextActive]}>{ROLE_LABELS[value]}</Text>
+                  </Pressable>
+                ))}
+>>>>>>> origin/main
               </View>
 
               <Text style={styles.fieldLabel}>Nama Lengkap:</Text>
@@ -196,11 +210,15 @@ export function AuthScreen({ onBypassDemo }: Props) {
               />
 
               <Text style={styles.fieldLabel}>
+<<<<<<< HEAD
                 {role === 'praktikan'
                   ? 'Nomor Induk Mahasiswa (NIM):'
                   : role === 'aslab'
                     ? 'Kode Aslab:'
                     : 'Kode Asprak:'}
+=======
+                {role === 'praktikan' ? 'Nomor Induk Mahasiswa (NIM):' : 'Kode Staf:'}
+>>>>>>> origin/main
               </Text>
               <TextInput
                 style={styles.input}

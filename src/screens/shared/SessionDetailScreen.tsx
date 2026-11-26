@@ -1,4 +1,3 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '../../components/AppHeader';
@@ -10,12 +9,12 @@ import { usePrakti } from '../../context/PraktiContext';
 import { AsistenSessionPanel } from '../../features/asisten/AsistenSessionPanel';
 import { PraktikanSessionPanel } from '../../features/praktikan/PraktikanSessionPanel';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
-import type { AppStackParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme';
 import { formatTanggal } from '../../utils/date';
 import { cariSesi } from '../../utils/selectors';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'SessionDetail'>;
+type Props = ScreenProps<'SessionDetail'>;
 
 export function SessionDetailScreen({ navigation, route }: Props) {
   const { currentUser, sesi: daftar, asistenList, practicum, retryPracticum } = usePrakti();
@@ -36,7 +35,7 @@ export function SessionDetailScreen({ navigation, route }: Props) {
 
   const asisten = asistenList.find((a) => a.id === sesi.asistenId);
   // Asisten hanya mengendalikan sesinya sendiri; sesi asisten lain bersifat baca saja.
-  const milikSendiri = currentUser.role === 'asisten' && currentUser.asisten.id === sesi.asistenId;
+  const milikSendiri = currentUser.role === 'asprak' && currentUser.asisten.id === sesi.asistenId;
 
   return (
     <View style={styles.root}>

@@ -1,4 +1,3 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
@@ -11,7 +10,7 @@ import { StatusPill } from '../../components/StatusPill';
 import { useCurrentAsisten, usePrakti } from '../../context/PraktiContext';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
 import { useStatusPresensi } from '../../features/presensi/useStatusPresensi';
-import type { AppStackParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import { colors, radius, spacing, typography } from '../../theme';
 import { formatJamDetik } from '../../utils/date';
 import { cariSesi, rekapSesi, sesiMilikAsisten, sesiUntukRekap } from '../../utils/selectors';
@@ -19,16 +18,16 @@ import { toTitleCase } from '../../utils/text';
 
 type Tab = 'hadir' | 'belum';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'Recap'>;
+type Props = ScreenProps<'Recap'>;
 
 export function RecapScreen({ navigation, route }: Props) {
   const asisten = useCurrentAsisten();
-  const { sesi, presensi, pesertaSesi } = usePrakti();
+  const { currentUser, sesi, presensi, pesertaSesi, practicum } = usePrakti();
   const [tab, setTab] = useState<Tab>('hadir');
   const [pilihan, setPilihan] = useState<string | undefined>(route.params?.sesiId);
   const status = useStatusPresensi();
 
-  if (!asisten) return null;
+  if (!asisten && currentUser?.role !== 'aslab') return null;
 
   // SRS-009: jangan tampilkan "Belum ada rekap" atau "0 hadir" sebelum data benar-benar termuat.
   if (status.loading || status.error) {
@@ -40,7 +39,7 @@ export function RecapScreen({ navigation, route }: Props) {
     );
   }
 
-  const milik = sesiMilikAsisten(sesi, asisten.id);
+  const milik = practicum ? sesi : sesiMilikAsisten(sesi, asisten!.id);
   const aktif = (pilihan ? cariSesi(milik, pilihan) : undefined) ?? sesiUntukRekap(milik);
 
   if (!aktif) {

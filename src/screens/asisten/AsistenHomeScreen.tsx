@@ -1,6 +1,3 @@
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import type { CompositeScreenProps } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '../../components/AppHeader';
@@ -15,15 +12,12 @@ import { StatusPill } from '../../components/StatusPill';
 import { useCurrentAsisten, usePrakti } from '../../context/PraktiContext';
 import { AsistenSessionPanel } from '../../features/asisten/AsistenSessionPanel';
 import { PracticumLoading } from '../../features/data-praktikum/PracticumLoading';
-import type { AppStackParamList, TabParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme';
 import { formatTanggalRelatif } from '../../utils/date';
 import { sesiBerikutnya, sesiMilikAsisten, sesiUtama } from '../../utils/selectors';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<TabParamList, 'Beranda'>,
-  NativeStackScreenProps<AppStackParamList>
->;
+type Props = ScreenProps<'Tabs'>;
 
 export function AsistenHomeScreen({ navigation }: Props) {
   const asisten = useCurrentAsisten();
@@ -36,16 +30,19 @@ export function AsistenHomeScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <AppHeader subtitle="Beranda Asisten" />
+      <AppHeader subtitle="Beranda Asprak" />
       <ScrollView contentContainerStyle={styles.content}>
-        <ProfileCard nama={asisten.nama} highlight="Asisten Praktikum" detail="Laboratorium Komputer" />
+        <ProfileCard nama={asisten.nama} highlight="Asprak" detail="Laboratorium Komputer" />
         <MenuGrid
           items={[
             { key: 'jadwal', label: 'Jadwal', icon: 'calendar-outline', onPress: () => navigation.navigate('Schedule') },
             { key: 'rekap', label: 'Rekap', icon: 'list-outline', onPress: () => navigation.navigate('Recap') },
             { key: 'izin', label: 'Cek Izin', icon: 'document-text-outline', onPress: () => navigation.navigate('PemeriksaanIzin') },
             { key: 'maps', label: 'Maps', icon: 'map-outline', onPress: () => navigation.navigate('Maps') },
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
             { key: 'profil', label: 'Profil', icon: 'person-outline', onPress: () => navigation.navigate('Tabs', { screen: 'Profil' }) },
           ]}
         />

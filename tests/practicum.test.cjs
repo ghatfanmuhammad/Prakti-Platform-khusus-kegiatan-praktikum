@@ -74,25 +74,32 @@ const { validateForm, assertScheduleDate } = load('validation');
 beforeEach(() => {
   documents = new Map([
     ['users/assistant', { role: 'aslab' }],
+<<<<<<< HEAD
     ['users/another', { role: 'aslab' }],
+=======
+    ['users/operator', { role: 'asprak' }],
+    ['users/another', { role: 'asprak' }],
+>>>>>>> origin/main
     ['users/student', { role: 'praktikan' }],
   ]);
   user = { uid: 'assistant' };
   sequence = 0;
 });
-const makeClass = () =>
-  repository.saveRecord('kelas', null, null, {
-    kode: 'IF-2A',
-    namaPraktikum: 'Basis Data',
-  });
-const makeSchedule = (classId, overrides = {}) =>
-  repository.saveRecord('jadwal', classId, null, {
+const makeClass = async () => {
+  const id = await repository.saveRecord('kelas', null, null, { kode: 'IF-2A', namaPraktikum: 'Basis Data' });
+  for (const uid of ['operator', 'another']) documents.set(`pengampu/${id}~${uid}`, { classId: id, uid });
+  return id;
+};
+const makeSchedule = (classId, overrides = {}) => {
+  user = { uid: 'operator' };
+  return repository.saveRecord('jadwal', classId, null, {
     hari: 'Kamis',
     mulai: '08:00',
     selesai: '10:00',
     ruangan: 'Lab 1',
     ...overrides,
   });
+};
 const makeSession = (classId, scheduleId, overrides = {}) =>
   repository.saveRecord('sesi', classId, null, {
     scheduleId,
@@ -146,7 +153,7 @@ test('duplicate enrollment, unknown accounts, and UID reassignment are rejected 
 });
 test('writes require a signed-in assistant, including after role revocation', async () => {
   user = null;
-  await assert.rejects(makeClass(), /masuk kembali/);
+  await assert.rejects(repository.saveRecord('kelas', null, null, { kode: 'A', namaPraktikum: 'DB' }), /masuk kembali/);
   user = { uid: 'student' };
   await assert.rejects(makeClass(), /Hanya Aslab/);
   user = { uid: 'assistant' };
@@ -161,12 +168,13 @@ test('class and schedule deletion preserve referenced data; child cleanup restor
   const classId = await makeClass();
   const scheduleId = await makeSchedule(classId);
   const sessionId = await makeSession(classId, scheduleId);
-  await assert.rejects(repository.deleteRecord('kelas', null, classId), /seluruh peserta/);
+  await assert.rejects(repository.deleteRecord('kelas', null, classId), /Aslab/);
   await assert.rejects(repository.deleteRecord('jadwal', classId, scheduleId), /Hapus sesi/);
   await repository.deleteRecord('sesi', classId, sessionId);
   assert.equal(documents.get(`classes/${classId}`).sessionCount, 0);
   assert.equal(documents.get(`classes/${classId}/schedules/${scheduleId}`).sessionCount, 0);
   await repository.deleteRecord('jadwal', classId, scheduleId);
+  user = { uid: 'assistant' };
   await repository.deleteRecord('kelas', null, classId);
   assert.equal([...documents.keys()].filter((key) => key.startsWith('classes/')).length, 0);
 });
@@ -221,8 +229,13 @@ test('opened sessions retain history and closed sessions are terminal', async ()
   const sessionId = await makeSession(classId, scheduleId);
   const codePath = `sessionCodes/${classId}~${sessionId}`;
   user = { uid: 'another' };
+<<<<<<< HEAD
   await assert.rejects(repository.changeSessionStatus(classId, sessionId, 'dibuka'), /diampu asprak lain/);
   user = { uid: 'assistant' };
+=======
+  await assert.rejects(repository.changeSessionStatus(classId, sessionId, 'dibuka'), /diampu asisten lain/);
+  user = { uid: 'operator' };
+>>>>>>> origin/main
   await repository.changeSessionStatus(classId, sessionId, 'dibuka', 'Topik uji');
   assert.equal(documents.get(codePath).kode, '4829');
   assert.equal(documents.get(`classes/${classId}/sessions/${sessionId}`).topik, 'Topik uji');
@@ -277,6 +290,7 @@ test('a maximum-length Firebase UID can be enrolled, edited, and removed', async
 
 test('schedule can be saved and edited with labId; old schedules without labId remain valid', async () => {
   const classId = await makeClass();
+  user = { uid: 'operator' };
   const scheduleId = await repository.saveRecord('jadwal', classId, null, {
     hari: 'Senin',
     mulai: '08:00',

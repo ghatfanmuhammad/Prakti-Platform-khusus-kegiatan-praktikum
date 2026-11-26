@@ -12,8 +12,8 @@ export async function dispatchNotification(
   input: unknown,
   io: { read: ReadDocument; members: (classId: string) => Promise<string[]> },
 ) {
-  if (!uid || (await io.read(`users/${uid}`))?.role !== 'asisten') {
-    throw new NotificationError('permission-denied', 'Hanya asisten yang dapat mengirim notifikasi.');
+  if (!uid || (await io.read(`users/${uid}`))?.role !== 'asprak') {
+    throw new NotificationError('permission-denied', 'Hanya Asprak yang dapat mengirim notifikasi.');
   }
   const data = input as Record<string, unknown> | null;
   const fields: Record<string, string[]> = {
@@ -31,9 +31,17 @@ export async function dispatchNotification(
     if (!doc) throw new NotificationError('not-found', 'Data notifikasi tidak ditemukan.');
     return doc;
   };
+  const requireAssignment = async (classId: string) => {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(classId)) throw new NotificationError('permission-denied', 'Kelas tidak valid.');
+    const assignment = await io.read(`pengampu/${classId}~${uid}`);
+    if (!assignment || assignment.classId !== classId || assignment.uid !== uid) {
+      throw new NotificationError('permission-denied', 'Asprak tidak ditugaskan pada kelas ini.');
+    }
+  };
   const send = createPushSender(io.read, io.members);
   if (kind === 'keputusan_izin') {
     const izin = await required(`izin/${data.izinId}`);
+    await requireAssignment(String(izin.sesiId ?? '').split('~')[0]);
     if (izin.reviewedByUid !== uid || (izin.status !== 'Disetujui' && izin.status !== 'Ditolak')) {
       throw new NotificationError('permission-denied', 'Keputusan izin belum tersimpan atau bukan milik asisten ini.');
     }
@@ -42,6 +50,7 @@ export async function dispatchNotification(
     }));
   }
   const classId = String(data.classId);
+  await requireAssignment(classId);
   const kelas = await required(`classes/${classId}`);
   const ringkas = { id: classId, namaPraktikum: String(kelas.namaPraktikum), kode: String(kelas.kode) };
   if (kind === 'jadwal_berubah') {

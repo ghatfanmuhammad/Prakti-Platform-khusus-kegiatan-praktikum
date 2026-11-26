@@ -84,10 +84,10 @@ test('token cleanup uses a transaction and preserves a newer device token', asyn
 test('callable rejects unauthorized callers and client-supplied recipients before reading tokens', async () => {
   const { dispatchNotification } = load(path.resolve(__dirname, '../functions/src/dispatcher.ts'));
   const reads = [];
-  const io = { read: async (path) => { reads.push(path); return { role: path === 'users/assistant' ? 'asisten' : 'praktikan' }; },
+  const io = { read: async (path) => { reads.push(path); return { role: ({ 'users/assistant': 'asprak', 'users/lab': 'aslab', 'users/legacy': 'asisten' })[path] ?? 'praktikan' }; },
     members: async () => { assert.fail('no recipient lookup allowed'); } };
   const request = { jenis: 'keputusan_izin', izinId: 'permit' };
-  for (const uid of [undefined, 'student']) {
+  for (const uid of [undefined, 'student', 'lab', 'legacy']) {
     await assert.rejects(dispatchNotification(uid, request, io), (error) => error.code === 'permission-denied');
   }
   await assert.rejects(dispatchNotification('assistant', { ...request, uids: ['outsider'] }, io),

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 export type Role = 'aslab' | 'asprak' | 'asisten' | 'praktikan';
+=======
+export type Role = 'aslab' | 'asprak' | 'praktikan';
+>>>>>>> origin/main
 
 export type SessionStatus = 'belum_dibuka' | 'dibuka' | 'ditutup';
 
@@ -20,9 +24,14 @@ export interface Praktikan {
 
 /** Pengguna yang sedang aktif. */
 export type CurrentUser =
+<<<<<<< HEAD
   | { role: 'aslab'; aslab: Aslab }
   | { role: 'asprak'; asprak: Asisten }
   | { role: 'asisten'; asisten: Asisten }
+=======
+  | { role: 'aslab'; asisten: Asisten }
+  | { role: 'asprak'; asisten: Asisten }
+>>>>>>> origin/main
   | { role: 'praktikan'; praktikan: Praktikan };
 
 export interface Sesi {

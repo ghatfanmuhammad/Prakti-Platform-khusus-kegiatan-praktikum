@@ -33,3 +33,12 @@ export type AppStackParamList = {
   /** Hanya praktikan: form pengajuan izin (SRS-010). */
   AjukanIzin: undefined;
 };
+
+
+/** Compatibility props for existing screens, backed exclusively by Expo Router. */
+export interface AppNavigation {
+  navigate: <K extends keyof AppStackParamList>(name: K, params?: AppStackParamList[K]) => void;
+  popTo: <K extends keyof AppStackParamList>(name: K, params?: AppStackParamList[K]) => void;
+  goBack: () => void;
+}
+export type ScreenProps<K extends keyof AppStackParamList> = { navigation: AppNavigation; route: { params: AppStackParamList[K] } };

@@ -10,6 +10,7 @@ import type { IconName } from '../components/icons';
 
 const PERAN: { role: Role; title: string; desc: string; icon: IconName }[] = [
   {
+<<<<<<< HEAD
     role: 'aslab',
     title: 'Masuk sebagai Aslab',
     desc: 'Kelola Lab, kebijakan presensi, praktikan & Asprak',
@@ -18,6 +19,10 @@ const PERAN: { role: Role; title: string; desc: string; icon: IconName }[] = [
   {
     role: 'asprak',
     title: 'Masuk sebagai Asprak',
+=======
+    role: 'asprak',
+    title: 'Masuk sebagai Asisten',
+>>>>>>> origin/main
     desc: 'Buka sesi, pantau kehadiran, tutup sesi',
     icon: 'school-outline',
   },

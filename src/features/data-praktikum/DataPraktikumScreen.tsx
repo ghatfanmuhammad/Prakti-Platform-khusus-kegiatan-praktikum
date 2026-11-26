@@ -17,6 +17,7 @@ import { AppHeader } from '../../components/AppHeader';
 import { StatusPill } from '../../components/StatusPill';
 import { usePrakti } from '../../context/PraktiContext';
 import { useLaboratorium } from '../laboratorium/hooks';
+import type { Role } from '../../types';
 import { colors } from '../../theme';
 import { errorMessage } from './errors';
 import {
@@ -111,12 +112,17 @@ export function DataPraktikumScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.screen}>
       <AppHeader subtitle="Data Praktikum" onBack={onBack} />
+<<<<<<< HEAD
       <PracticumWorkspace assistant={currentUser.role === 'aslab' || currentUser.role === 'asisten'} />
+=======
+      <PracticumWorkspace role={currentUser.role} />
+>>>>>>> origin/main
     </View>
   );
 }
 
-function PracticumWorkspace({ assistant }: { assistant: boolean }) {
+function PracticumWorkspace({ role }: { role: Role }) {
+  const staff = role !== 'praktikan';
   const { practicum, retryPracticum } = usePrakti();
   const { classes, participants, tree } = practicum!;
   const [chosenClassId, setChosenClassId] = useState<string | null>(null);
@@ -126,7 +132,8 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
   const schedules = selected?.schedules ?? EMPTY;
   const sessions = selected?.sessions ?? EMPTY;
   const roster = useMemo(() => participants.data.filter((item) => item.classId === classId), [participants.data, classId]);
-  const [kind, setKind] = useState<Kind>(assistant ? 'kelas' : 'jadwal');
+  const [kind, setKind] = useState<Kind>(role === 'aslab' ? 'kelas' : 'jadwal');
+  const assistant = role === 'aslab' ? kind === 'kelas' || kind === 'peserta' : role === 'asprak' && (kind === 'jadwal' || kind === 'sesi');
   const [editor, setEditor] = useState<Editor | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -280,7 +287,7 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
   const header = (
     <View style={styles.header}>
       <View style={styles.row}>
-        {(assistant
+        {(staff
           ? (['kelas', 'peserta', 'jadwal', 'sesi'] as const)
           : (['jadwal', 'sesi'] as const)
         ).map((value) => (
@@ -397,8 +404,13 @@ function PracticumWorkspace({ assistant }: { assistant: boolean }) {
               message={
                 !classId && kind !== 'kelas'
                   ? assistant
+<<<<<<< HEAD
                     ? 'Buka tab Kelas untuk menambahkan kelas praktikum.'
                     : 'Hubungi Aslab untuk mendaftarkan akun Anda ke kelas.'
+=======
+                    ? (role === 'aslab' ? 'Buka tab Kelas untuk menambahkan kelas praktikum.' : 'Belum ada penugasan kelas. Hubungi Aslab untuk penugasan Asprak.')
+                    : 'Hubungi asisten untuk mendaftarkan akun Anda ke kelas.'
+>>>>>>> origin/main
                   : assistant
                     ? `Gunakan tombol Tambah ${LABELS[kind].toLowerCase()} untuk memulai.`
                     : 'Data akan tampil setelah ditambahkan oleh Aslab.'

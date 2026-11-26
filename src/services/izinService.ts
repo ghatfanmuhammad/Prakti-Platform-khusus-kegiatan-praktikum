@@ -3,7 +3,6 @@ import {
   collection,
   doc,
   onSnapshot,
-  orderBy,
   query,
   runTransaction,
   serverTimestamp,
@@ -170,11 +169,18 @@ export async function klasifikasiUlangIzin(izinId: string, alasan: string): Prom
  * [SRS-011 - Asisten] Berlangganan (listen) seluruh daftar permohonan izin secara real-time
  */
 export function subscribeDaftarIzin(
+  sesiIds: string[],
   onData: (hasil: DaftarIzinSnapshot) => void,
   onError: (error: FirestoreError) => void,
 ) {
-  const q = query(collection(db, 'izin'), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, { includeMetadataChanges: true }, (s) => onData(mapSnapshot(s)), onError);
+  const ids = [...new Set(sesiIds)];
+  const results = new Map<string, DaftarIzinSnapshot>();
+  if (!ids.length) { onData({ daftar: [], dariCache: false }); return () => {}; }
+  const stops = ids.map((id) => onSnapshot(query(collection(db, 'izin'), where('sesiId', '==', id)), { includeMetadataChanges: true }, (snapshot) => {
+    results.set(id, mapSnapshot(snapshot));
+    if (results.size === ids.length) onData({ daftar: [...results.values()].flatMap((s) => s.daftar), dariCache: [...results.values()].some((s) => s.dariCache) });
+  }, onError));
+  return () => stops.forEach((stop) => stop());
 }
 
 /**

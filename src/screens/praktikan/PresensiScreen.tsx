@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -20,7 +19,7 @@ import { keadaanPresensi, pesanKeadaanPresensi, type KeadaanPresensi } from '../
 import { pesanHasilLokasi, type HasilLokasi } from '../../features/presensi/lokasi';
 import { useStatusPresensi } from '../../features/presensi/useStatusPresensi';
 import { useValidasiLokasi } from '../../features/presensi/useValidasiLokasi';
-import type { AppStackParamList } from '../../navigation/types';
+import type { ScreenProps } from '../../navigation/types';
 import { colors, radius, spacing, typography } from '../../theme';
 import { pesanGagalPresensi } from '../../utils/attendanceRules';
 import { PANJANG_KODE } from '../../utils/code';
@@ -28,7 +27,7 @@ import { formatJamDetik, formatTanggal } from '../../utils/date';
 import { bacaIsiQr } from '../../utils/qr';
 import { cariSesi } from '../../utils/selectors';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'Presensi'>;
+type Props = ScreenProps<'Presensi'>;
 
 type Metode = 'qr' | 'kode';
 type Tahap = 'lokasi' | 'simpan';

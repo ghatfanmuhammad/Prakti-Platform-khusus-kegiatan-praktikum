@@ -28,12 +28,16 @@ export function IdentityPickerSheet({ role, onClose }: Props) {
     return praktikanList.filter((p) => p.nama.toLowerCase().includes(q) || p.nim.includes(q));
   }, [praktikanList, query]);
 
+<<<<<<< HEAD
   const judul =
     role === 'aslab'
       ? 'Pilih akun Aslab'
       : role === 'asprak' || role === 'asisten'
         ? 'Pilih akun Asprak'
         : 'Pilih akun praktikan';
+=======
+  const judul = role === 'asprak' ? 'Pilih akun asisten' : 'Pilih akun praktikan';
+>>>>>>> origin/main
 
   return (
     <BottomSheet visible={role !== null} title={judul} onClose={handleClose}>
@@ -47,15 +51,23 @@ export function IdentityPickerSheet({ role, onClose }: Props) {
         />
       ) : null}
       <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
+<<<<<<< HEAD
         {role === 'aslab' &&
+=======
+        {role === 'asprak' &&
+>>>>>>> origin/main
           asistenList.map((a) => (
             <Pressable
               key={a.id}
               accessibilityRole="button"
+<<<<<<< HEAD
               onPress={() => {
                 setQuery('');
                 masuk({ role: 'aslab', aslab: a }, true);
               }}
+=======
+              onPress={() => masuk({ role: 'asprak', asisten: a }, true)}
+>>>>>>> origin/main
               style={styles.item}
             >
               <Text style={styles.name}>{a.nama}</Text>
