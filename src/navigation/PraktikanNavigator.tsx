@@ -7,7 +7,9 @@ import { AjukanIzinScreen } from '../screens/praktikan/AjukanIzinScreen';
 import { HistoryScreen } from '../screens/praktikan/HistoryScreen';
 import { PraktikanHomeScreen } from '../screens/praktikan/PraktikanHomeScreen';
 import { PresensiScreen } from '../screens/praktikan/PresensiScreen';
+import { RiwayatPembayaranScreen } from '../screens/praktikan/RiwayatPembayaranScreen';
 import { StatusIzinScreen } from '../screens/praktikan/StatusIzinScreen';
+import { TagihanScreen } from '../screens/praktikan/TagihanScreen';
 import { MapsScreen } from '../screens/shared/MapsScreen';
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
 import { ScheduleScreen } from '../screens/shared/ScheduleScreen';
@@ -47,6 +49,8 @@ export function PraktikanNavigator() {
         <Stack.Screen name="StatusIzin" component={StatusIzinScreen} />
         <Stack.Screen name="AjukanIzin" component={AjukanIzinScreen} />
         <Stack.Screen name="Maps" component={MapsScreen} />
+        <Stack.Screen name="Tagihan" component={TagihanScreen} />
+        <Stack.Screen name="RiwayatPembayaran" component={RiwayatPembayaranScreen} />
       </Stack.Navigator>
     </CheckInFlowProvider>
   );

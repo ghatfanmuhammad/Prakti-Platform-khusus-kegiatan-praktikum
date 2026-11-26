@@ -27,6 +27,15 @@ export const colors = {
   dangerBg: '#FBEAE8',
   dangerBorder: '#F0C4BF',
 
+  warning: '#E0A800',
+  warningText: '#7A5200',
+  warningBg: '#FFF6D6',
+  warningBorder: '#F3DC8C',
+
+  infoText: '#0B1A5C',
+  infoBg: '#E7EBFA',
+  infoBorder: '#C6CEF0',
+
   neutralText: '#4A5068',
   neutralBg: '#ECEEF4',
   neutralDot: '#8A90A8',

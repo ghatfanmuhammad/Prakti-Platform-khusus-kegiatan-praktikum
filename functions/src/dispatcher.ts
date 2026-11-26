@@ -1,4 +1,13 @@
-import { pesanSesiDibuka, pesanJadwalBerubah, pesanSesiDijadwalUlang, pesanKeputusanIzin } from '../../src/features/notifikasi/pesan';
+import {
+  jenisNotifikasiPembayaran,
+  pesanDendaBaru,
+  pesanJadwalBerubah,
+  pesanKeputusanIzin,
+  pesanPembayaran,
+  pesanSesiDibuka,
+  pesanSesiDijadwalUlang,
+  type HasilKirim,
+} from '../../src/features/notifikasi/pesan';
 import { createPushSender, type ReadDocument } from './transport';
 
 export class NotificationError extends Error {
@@ -65,4 +74,30 @@ export async function dispatchNotification(
     modul: String(sesi.modul), topik: typeof sesi.topik === 'string' ? sesi.topik : null,
   }) : pesanSesiDijadwalUlang(ringkas, { modul: String(sesi.modul), tanggal: String(sesi.tanggal) }, waktu);
   return send.kirimKeKelas(classId, isi);
+}
+
+// ---------- SRS-029: dipanggil trigger Firestore, bukan dari aplikasi ----------
+type Dokumen = Record<string, unknown> | undefined;
+
+/** Tagihan denda baru: kirim hanya ke praktikan pemilik denda. */
+export async function notifikasiDendaBaru(id: string, denda: Dokumen, io: { read: ReadDocument }): Promise<HasilKirim | null> {
+  if (!denda || typeof denda.praktikanId !== 'string' || denda.status !== 'belum_dibayar') return null;
+  const send = createPushSender(io.read, async () => []);
+  return send.kirimKePengguna([denda.praktikanId], pesanDendaBaru({
+    id, sesiNama: String(denda.sesiNama), menitTerlambat: Number(denda.menitTerlambat), nominal: Number(denda.nominal),
+  }));
+}
+
+/** Perubahan status pembayaran yang sudah diverifikasi server. */
+export async function notifikasiPembayaran(sebelum: Dokumen, sesudah: Dokumen, io: { read: ReadDocument }): Promise<HasilKirim | null> {
+  if (!sebelum || !sesudah || typeof sesudah.praktikanId !== 'string') return null;
+  const ringkas = (d: Record<string, unknown>) => ({
+    status: String(d.status), statusMidtrans: typeof d.statusMidtrans === 'string' ? d.statusMidtrans : null,
+  });
+  const jenis = jenisNotifikasiPembayaran(ringkas(sebelum), ringkas(sesudah));
+  if (!jenis) return null;
+  const send = createPushSender(io.read, async () => []);
+  return send.kirimKePengguna([sesudah.praktikanId], pesanPembayaran(jenis, {
+    orderId: String(sesudah.orderId), sesiNama: String(sesudah.sesiNama), nominal: Number(sesudah.nominal),
+  }));
 }

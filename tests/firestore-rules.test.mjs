@@ -1,6 +1,7 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import * as firestore from 'firebase/firestore';
 import { readFile } from 'node:fs/promises';
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -27,8 +28,8 @@ const projectId = 'demo-prakti-srs008-tests';
 const apps = [];
 const require = createRequire(import.meta.url);
 const load = require('./helpers/load-typescript.cjs');
-const { periksaRadius } = load(new URL('../src/features/presensi/lokasi.ts', import.meta.url).pathname);
-const { bacaIsiQr, buatIsiQr } = load(new URL('../src/utils/qr.ts', import.meta.url).pathname);
+const { periksaRadius } = load(fileURLToPath(new URL('../src/features/presensi/lokasi.ts', import.meta.url)));
+const { bacaIsiQr, buatIsiQr } = load(fileURLToPath(new URL('../src/utils/qr.ts', import.meta.url)));
 const lab = { id: 'lab-1', nama: 'Lab 1', lat: -6.2, lng: 106.8, radiusMeter: 50 };
 const posisi = { lat: lab.lat, lng: lab.lng, akurasi: 10 };
 const lokasi = { labId: lab.id, ...posisi };
@@ -160,7 +161,7 @@ test('four notification events commit to Firestore and target only class members
   const serverRequire = createRequire(new URL('../functions/package.json', import.meta.url));
   const { kirimNotifikasi } = serverRequire('./lib/functions/src/index.js');
   const serverCall = (uid, data) => kirimNotifikasi.run({ data, auth: uid ? { uid } : undefined });
-  const api = load(new URL('../src/features/notifikasi/aksi.ts', import.meta.url).pathname, {
+  const api = load(fileURLToPath(new URL('../src/features/notifikasi/aksi.ts', import.meta.url)), {
     'firebase/firestore': firestore, '../../services/firebase': firebase, './firebase': firebase,
     './aiService': {},
     'firebase/functions': {
@@ -415,6 +416,40 @@ test('push tokens are private to their student owner; assistants cannot get or l
   await denied(deleteDoc(doc(assistant, 'pushTokens/student')));
   await deleteDoc(own);
 });
+test('denda & pembayaran: hanya dibaca pemilik, tidak bisa ditulis dari aplikasi (SRS-027/028)', options, async () => {
+  const admin = client('owner');
+  const denda = { praktikanId: 'student', sesiNama: 'Basis Data', tanggal: '2026-11-20', menitTerlambat: 12, nominal: 10000, status: 'belum_dibayar' };
+  const bayar = { orderId: 'PRK-T1', dendaId: 'd-student', praktikanId: 'student', nominal: 10000, status: 'pending' };
+  await setDoc(doc(admin, 'denda/d-student'), denda);
+  await setDoc(doc(admin, 'denda/d-other'), { ...denda, praktikanId: 'other' });
+  await setDoc(doc(admin, 'pembayaran/PRK-T1'), bayar);
+  await setDoc(doc(admin, 'pembayaran/PRK-T2'), { ...bayar, orderId: 'PRK-T2', praktikanId: 'other' });
+
+  // Pemilik membaca miliknya (get dan list terfilter).
+  assert.equal((await getDoc(doc(student, 'denda/d-student'))).data().nominal, 10000);
+  assert.equal((await getDocs(query(collection(student, 'denda'), where('praktikanId', '==', 'student')))).size, 1);
+  assert.equal((await getDoc(doc(student, 'pembayaran/PRK-T1'))).data().status, 'pending');
+  assert.equal((await getDocs(query(collection(student, 'pembayaran'), where('praktikanId', '==', 'student')))).size, 1);
+
+  // Bukan pemilik dan anonim ditolak; list tanpa filter pemilik ditolak.
+  await denied(getDoc(doc(student, 'denda/d-other')));
+  await denied(getDoc(doc(student, 'pembayaran/PRK-T2')));
+  await denied(getDocs(collection(student, 'pembayaran')));
+  await denied(getDoc(doc(anonymous, 'denda/d-student')));
+  await denied(getDoc(doc(anonymous, 'pembayaran/PRK-T1')));
+  // Asisten boleh melihat denda (pemantauan), tetapi tidak transaksi pembayaran.
+  assert.equal((await getDoc(doc(assistant, 'denda/d-student'))).exists(), true);
+  await denied(getDoc(doc(assistant, 'pembayaran/PRK-T1')));
+
+  // Tidak ada yang bisa menulis dari aplikasi, termasuk menandai lunas sendiri.
+  await denied(updateDoc(doc(student, 'denda/d-student'), { status: 'lunas' }));
+  await denied(updateDoc(doc(student, 'pembayaran/PRK-T1'), { status: 'success' }));
+  await denied(setDoc(doc(student, 'pembayaran/PRK-T3'), { ...bayar, orderId: 'PRK-T3', status: 'success' }));
+  await denied(setDoc(doc(student, 'denda/d-baru'), denda));
+  await denied(updateDoc(doc(assistant, 'denda/d-student'), { status: 'dibebaskan' }));
+  await denied(updateDoc(doc(assistant, 'pembayaran/PRK-T1'), { status: 'success' }));
+  await denied(deleteDoc(doc(student, 'pembayaran/PRK-T1')));
+});
 test(
   'laboratories: assistants can write, students and assistants can read, anonymous is denied',
   options,
@@ -489,7 +524,7 @@ for (const metode of ['qr', 'manual']) {
     const sessionRef = doc(admin, 'classes/own/sessions', sessionId);
     await setDoc(sessionRef, { scheduleId: 'schedule', status: 'dibuka' });
     await setDoc(doc(admin, 'sessionCodes', sesi.id), { classId: 'own', sesiId: sessionId, kode: '4829' });
-    const { saveAttendance } = load(new URL('../src/features/data-praktikum/attendance.ts', import.meta.url).pathname, {
+    const { saveAttendance } = load(fileURLToPath(new URL('../src/features/data-praktikum/attendance.ts', import.meta.url)), {
       'firebase/firestore': firestore,
       '../../services/firebase': { db: student, auth: { currentUser: { uid: 'student' } } },
     });

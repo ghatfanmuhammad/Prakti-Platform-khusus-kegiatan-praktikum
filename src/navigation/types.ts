@@ -26,4 +26,8 @@ export type AppStackParamList = {
   StatusIzin: undefined;
   /** Hanya praktikan: form pengajuan izin (SRS-010). */
   AjukanIzin: undefined;
+  /** Hanya praktikan: daftar tagihan denda & bayar lewat Midtrans (SRS-027). */
+  Tagihan: undefined;
+  /** Hanya praktikan: riwayat transaksi pembayaran (SRS-029). */
+  RiwayatPembayaran: undefined;
 };

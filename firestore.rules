@@ -373,6 +373,21 @@ service cloud.firestore {
       allow write: if isAsisten();
     }
 
+    // ---------- denda/{dendaId}: tagihan keterlambatan (SRS-025, dibaca SRS-027) ----------
+    // Dibuat dan diubah hanya oleh Cloud Functions (Admin SDK). Praktikan hanya melihat miliknya.
+    match /denda/{dendaId} {
+      allow get, list: if isAsisten()
+        || (isPraktikan() && resource.data.praktikanId == request.auth.uid);
+      allow write: if false;
+    }
+
+    // ---------- pembayaran/{orderId}: transaksi Midtrans (SRS-027/028) ----------
+    // Status hanya ditulis server setelah notifikasi Midtrans terverifikasi; aplikasi tidak bisa menulis.
+    match /pembayaran/{orderId} {
+      allow get, list: if isPraktikan() && resource.data.praktikanId == request.auth.uid;
+      allow write: if false;
+    }
+
     // ---------- izin/{izinId}: pengajuan izin (SRS-010) & pemeriksaan (SRS-011) ----------
     match /izin/{izinId} {
       // Field hasil klasifikasi AI (informasi pendukung; tidak memengaruhi status izin)

@@ -19,6 +19,7 @@ import { AppState, Platform } from 'react-native';
 
 import { usePrakti } from '../../context/PraktiContext';
 import { navigationRef } from '../../navigation/navigationRef';
+import { ruteNotifikasi } from './aksi';
 import { lepasRegistrasi, sinkronkanPerangkat } from './sinkronisasiPush';
 import type { DataNotifikasi } from './pesan';
 import { aturTampilanNotifikasi, type StatusPush } from './registrasiPush';
@@ -127,14 +128,9 @@ function useBukaLayarDariNotifikasi(uid: string | null) {
       return () => clearTimeout(timer);
     }
     ditangani.current = id;
-    const data = respons.notification.request.content.data as Partial<DataNotifikasi> | undefined;
-    if (data?.jenis === 'sesi_dibuka' && typeof data.sesiId === 'string') {
-      navigationRef.navigate('Presensi', { sesiId: data.sesiId });
-    } else if (data?.jenis === 'jadwal_berubah') {
-      navigationRef.navigate('Schedule');
-    } else if (data?.jenis === 'keputusan_izin') {
-      navigationRef.navigate('StatusIzin');
-    }
+    const rute = ruteNotifikasi(respons.notification.request.content.data as Partial<DataNotifikasi> | undefined);
+    if (rute?.name === 'Presensi') navigationRef.navigate('Presensi', rute.params);
+    else if (rute) navigationRef.navigate(rute.name);
   }, [uid, respons, percobaan]);
 }
 

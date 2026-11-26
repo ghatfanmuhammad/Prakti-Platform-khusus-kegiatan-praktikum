@@ -3,6 +3,7 @@
  * Modul ini sengaja murni (tanpa Firebase/Expo) agar mudah diuji.
  */
 import { formatTanggal } from '../../utils/date';
+import { formatRupiah } from '../pembayaran/kontrak';
 
 /** ID channel Android. Harus sama dengan channel yang dibuat saat registrasi. */
 export const CHANNEL_ID = 'default';
@@ -13,7 +14,9 @@ export const BATAS_PESAN_PER_PERMINTAAN = 100;
 export type DataNotifikasi =
   | { jenis: 'sesi_dibuka'; sesiId: string }
   | { jenis: 'jadwal_berubah'; classId: string }
-  | { jenis: 'keputusan_izin'; izinId: string };
+  | { jenis: 'keputusan_izin'; izinId: string }
+  | { jenis: 'denda_baru'; dendaId: string }
+  | { jenis: 'pembayaran_berhasil' | 'pembayaran_gagal' | 'pembayaran_tertunda'; orderId: string };
 
 export interface IsiNotifikasi {
   title: string;
@@ -113,6 +116,59 @@ export function pesanKeputusanIzin(izin: {
     body: `Pengajuan izin untuk ${izin.sesiNama} ${disetujui ? 'disetujui' : 'ditolak'} oleh ${izin.reviewedBy}.`,
     data: { jenis: 'keputusan_izin', izinId: izin.id },
   };
+}
+
+// ---------- SRS-029: denda & pembayaran (dikirim oleh trigger server) ----------
+
+export function pesanDendaBaru(denda: { id: string; sesiNama: string; menitTerlambat: number; nominal: number }): IsiNotifikasi {
+  return {
+    title: 'Tagihan denda baru',
+    body:
+      `Kamu terlambat ${denda.menitTerlambat} menit pada ${denda.sesiNama}. ` +
+      `Denda ${formatRupiah(denda.nominal)} dapat dibayar di menu Tagihan.`,
+    data: { jenis: 'denda_baru', dendaId: denda.id },
+  };
+}
+
+export type JenisNotifikasiPembayaran = 'pembayaran_berhasil' | 'pembayaran_gagal' | 'pembayaran_tertunda';
+
+export function pesanPembayaran(
+  jenis: JenisNotifikasiPembayaran,
+  bayar: { orderId: string; sesiNama: string; nominal: number },
+): IsiNotifikasi {
+  const nominal = formatRupiah(bayar.nominal);
+  const isi: Record<JenisNotifikasiPembayaran, { title: string; body: string }> = {
+    pembayaran_berhasil: {
+      title: 'Pembayaran berhasil',
+      body: `Pembayaran denda ${nominal} untuk ${bayar.sesiNama} sudah diterima. Tagihan lunas.`,
+    },
+    pembayaran_gagal: {
+      title: 'Pembayaran gagal',
+      body: `Pembayaran denda ${nominal} untuk ${bayar.sesiNama} gagal atau kedaluwarsa. Kamu bisa membayar ulang di menu Tagihan.`,
+    },
+    pembayaran_tertunda: {
+      title: 'Selesaikan pembayaran',
+      body: `Pembayaran denda ${nominal} untuk ${bayar.sesiNama} menunggu penyelesaian. Selesaikan sebelum batas waktunya.`,
+    },
+  };
+  return { ...isi[jenis], data: { jenis, orderId: bayar.orderId } };
+}
+
+/**
+ * Notifikasi apa yang perlu dikirim saat dokumen pembayaran berubah. Hanya transisi yang memicu,
+ * sehingga notifikasi Midtrans ganda (tanpa perubahan) tidak mengirim ulang.
+ */
+export function jenisNotifikasiPembayaran(
+  sebelum: { status: string; statusMidtrans: string | null },
+  sesudah: { status: string; statusMidtrans: string | null },
+): JenisNotifikasiPembayaran | null {
+  if (sesudah.status === 'success' && sebelum.status !== 'success') return 'pembayaran_berhasil';
+  if (sesudah.status === 'failed' && sebelum.status !== 'failed') return 'pembayaran_gagal';
+  // Pending dari Midtrans = praktikan sudah memilih metode (mis. VA) dan perlu menyelesaikannya.
+  if (sesudah.status === 'pending' && sesudah.statusMidtrans === 'pending' && sebelum.statusMidtrans !== 'pending') {
+    return 'pembayaran_tertunda';
+  }
+  return null;
 }
 
 /** Apakah jadwal berubah dari sisi praktikan (hari, jam, atau ruangan). */

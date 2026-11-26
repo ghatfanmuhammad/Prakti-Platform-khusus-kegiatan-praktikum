@@ -55,6 +55,7 @@ export function PraktikanHomeScreen({ navigation }: Props) {
             { key: 'maps', label: 'Maps', icon: 'map-outline', onPress: () => navigation.navigate('Maps') },
             { key: 'riwayat', label: 'Riwayat', icon: 'time-outline', onPress: () => navigation.navigate('History') },
             { key: 'izin', label: 'Status Izin', icon: 'document-text-outline', onPress: () => navigation.navigate('StatusIzin') },
+            { key: 'tagihan', label: 'Tagihan', icon: 'wallet-outline', onPress: () => navigation.navigate('Tagihan') },
           ]}
         />
         <StatusNotifikasiCard hanyaMasalah />
